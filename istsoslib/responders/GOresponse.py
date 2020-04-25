@@ -144,7 +144,7 @@ class VirtualProcess(ABC):
 
                 result = result[0]
 
-                if result[0] == 'virtual':
+                if result[0] == 'virtual' or result[0] == 'profile':
                     vpFolder = os.path.join(self.filter.sosConfig.virtual_processes_folder,p)
                     try:
                         if vpFolder not in sys.path:
@@ -154,12 +154,17 @@ class VirtualProcess(ABC):
                         raise Exception("error in loading virtual procedure path (%s):\n%s" % (vpFolder,e))
 
                     # check if python file exist
+                    print(vpFolder)
+                    print(p)
                     if os.path.isfile("%s/%s.py" % (vpFolder,p)):
+                        print("sono qua")
                         vproc = importlib.import_module(p)
                         # exec("import %s as vproc" %(p))
                         vp = vproc.istvp()
                         if len(vp.procedures)>0:
                             # Add data source of virtual procedure
+                            print("ciaoooo")
+                            print(vp.procedures)
                             tmp.extend(list(vp.procedures.keys()))
 
                 else:
@@ -392,7 +397,6 @@ class VirtualProcess(ABC):
 
 
 class VirtualProcessProfile(VirtualProcess):
-
     def observed_properties(self, offering):
         sql = """
             SELECT array_agg(def_opr)
@@ -865,7 +869,7 @@ class Observation:
             "insitu-fixed-point",
             "insitu-fixed-specimen",
             "insitu-mobile-point",
-            "virtual"]:
+            "virtual", "profile"]:
             self.procedureType=row["name_oty"]
         else:
             raise Exception("error in procedure type setting")
@@ -951,7 +955,7 @@ class Observation:
 
         # SET DATA
         #  CASE is not virtual #"insitu-fixed-point", "insitu-mobile-point" or "insiru-fixed-specimen"
-        if self.procedureType != "virtual":
+        if self.procedureType != "virtual" and self.procedureType != "profile":
 
             sqlSel = "SELECT "
 
@@ -1353,8 +1357,7 @@ class Observation:
                 raise Exception("SQL: %s"%(sql))
 
         # CASE "virtual"
-        elif self.procedureType in ["virtual"]:
-
+        elif self.procedureType in ["virtual", "profile"]:
             self.aggregate_function = filter.aggregate_function
             self.aggregate_interval = filter.aggregate_interval
             self.aggregate_nodata = filter.aggregate_nodata

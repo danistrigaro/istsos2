@@ -333,7 +333,7 @@ class Procedure():
                 ns['sml'], ns['sml'], ns['sml'], ns['gml'], ns['gml']))
 
         try:
-            coordlist = [i for i in coord.text.strip().split(",")]
+            coordlist = [float(i) for i in coord.text.strip().split(",")]
             self.data["location"] = {}
             self.data["location"]["type"] = "Feature"
             self.data["location"]["geometry"] = {}
@@ -419,10 +419,8 @@ class Procedure():
                 except:
                     item["uom"] = ""
 
-
+                item["constraint"] = {}
                 if allow is not None:
-
-                    item["constraint"] = {}
 
                     try:
                         item["constraint"]["role"] = child.find("{%s}constraint" % ns['swe']).attrib["{%s}role" % ns['xlink']]

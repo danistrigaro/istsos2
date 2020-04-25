@@ -750,7 +750,7 @@ class waProcedures(waResourceService):
         if rows:
             ret = {
                 'assignedSensorId': rows[0]["assignedid_prc"],
-                'mqtt': None
+                'mqtt': ""
             }
             if rows[0]["mqtt_prc"] is not None and rows[0]["mqtt_prc"] != '':
                 import json
@@ -802,7 +802,8 @@ class waGetlist(waResourceService):
                 if ops is not None:
                     elem["observedproperties"] = [{
                         "name": op["name"],
-                        "uom": op["uom"]
+                        "uom": op["uom"],
+                        "definition": op["def"]
                     } for op in ops]
 
                 else:
@@ -915,8 +916,8 @@ class waGetGeoJson(waResourceService):
 
                         ret = {}
                         ret.update(smlobj.data)
-
-                        if 'constraint' in ret['outputs'][0]:
+                        
+                        if 'constraint' in ret['outputs'][0] and len(ret['outputs'][0]['constraint'].keys()) != 0:
                             proc['samplingTime']['beginposition'] = (
                                 ret['outputs'][0]['constraint']['interval'][0])
 

@@ -49,6 +49,34 @@ def getUser(environ):
             users = pic.load(f)
             return User(username, users[username])
             # environ["user"] = User(username, users[username])
+    if 'OIDC_CLAIM_groups' in environ:
+        if 'admin' in environ['OIDC_CLAIM_groups'].split(','):
+            return User(environ['OIDC_CLAIM_preferred_username'], {
+                "password": "",
+                "roles": {
+                    "admin": {
+                        "*": ["*"]
+                    }
+                }
+            })
+        elif 'editor' in environ['OIDC_CLAIM_groups'].split(','):
+            return User(environ['OIDC_CLAIM_preferred_username'], {
+                "password": "",
+                "roles": {
+                    "networkmanager": {
+                        "*": ["*"]
+                    }
+                }
+            })
+        elif 'viewer' in environ['OIDC_CLAIM_groups'].split(','):
+            return User(environ['OIDC_CLAIM_preferred_username'], {
+                "password": "",
+                "roles": {
+                    "viewer": {
+                        "*": ["*"]
+                    }
+                }
+            })
     # else:
     #    raise Exception("Authorization is enabled in config file but HTTP_AUTHORIZATION header not present. Check the security page in the documentation")
 

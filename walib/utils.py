@@ -460,15 +460,19 @@ def getProcedureNamesList(pgdb, service, offering = None,
 
                     # Initialization of virtual procedure will
                     # load the source data
-                    vp = vproc.istvp()
-                    vp._configure(fakeFilter, pgdb)
+                    try:
+                        vp = vproc.istvp()
+                        vp._configure(fakeFilter, pgdb)
 
-                    begin, end = vp.getSampligTime()
+                        begin, end = vp.getSampligTime()
 
-                    if begin:
-                        begin = begin.strftime("%Y-%m-%dT%H:%M:%S%z")
-                    if end:
-                        end = end.strftime("%Y-%m-%dT%H:%M:%S%z")
+                        if begin:
+                            begin = begin.strftime("%Y-%m-%dT%H:%M:%S%z")
+                        if end:
+                            end = end.strftime("%Y-%m-%dT%H:%M:%S%z")
+                    except:
+                        begin = None
+                        end = None
 
             ret.append({
                 "id": row["id_prc"],

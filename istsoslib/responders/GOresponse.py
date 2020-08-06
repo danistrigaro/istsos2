@@ -157,17 +157,12 @@ class VirtualProcess(ABC):
                         raise Exception("error in loading virtual procedure path (%s):\n%s" % (vpFolder,e))
 
                     # check if python file exist
-                    print(vpFolder)
-                    print(p)
                     if os.path.isfile("%s/%s.py" % (vpFolder,p)):
-                        print("sono qua")
                         vproc = importlib.import_module(p)
                         # exec("import %s as vproc" %(p))
                         vp = vproc.istvp()
                         if len(vp.procedures)>0:
                             # Add data source of virtual procedure
-                            print("ciaoooo")
-                            print(vp.procedures)
                             tmp.extend(list(vp.procedures.keys()))
 
                 else:
@@ -312,6 +307,7 @@ class VirtualProcess(ABC):
             raise Exception("Database error: %s - %s" % (sql, e))
 
         obs = Observation()
+
         obs.baseInfo(self.pgdb, result, virtualFilter.sosConfig)
 
         if disableAggregation:
@@ -435,6 +431,7 @@ class VirtualProcessProfile(VirtualProcess):
             raise Exception("Database error: %s - %s" % (sql, e))
 
     def getProceduresInfo(self):
+
         proc_sql = ('\' OR name_prc=\'').join(self.procedures)
         sql_filter = ' WHERE name_prc=\'' + proc_sql + '\' '
         sql = """
@@ -548,6 +545,7 @@ class VirtualProcessProfile(VirtualProcess):
                         depths_list = [
                             [round(abs(self.coords[2] - proc[2]), 1), 100]
                         ] * len(data_temp)
+
                     else:
                         depths_list = [
                             [round(abs(self.coords[2] - proc[2]), 1)]
@@ -568,6 +566,8 @@ class VirtualProcessProfile(VirtualProcess):
         else:
             data.sort(key=lambda row: row[idx_order.index(len(obs_filtered))])
         data.sort(key=lambda row: row[0])
+        if self.filter.qualityIndex is True:
+            data.sort(key=lambda row: row[4], reverse=True)
 
         if self.filter.responseFormat == "application/json":
 

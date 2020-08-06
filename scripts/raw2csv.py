@@ -79,7 +79,10 @@ class Converter():
             user=None, password=None, debug=False,
             csvlength=5000,
             filenamecheck=None, archivefolder=None,
-            extra={}):
+            extra={
+                "disable_identical_warning": False
+            }
+        ):
         """
         Info:
 
@@ -304,7 +307,7 @@ class Converter():
             dt = dt + self.fntd
         if ep is not None and ep < dt:
             return False
-        print("skipping %s" % name)
+
         return True
 
     def getDateTimeWithTimeZone(self, dt, tz):
@@ -384,7 +387,7 @@ class Converter():
 
         for fileObj in self.fileArray:
             if self.skipFile(os.path.split(fileObj)[1]):
-                self.log(" > Skipping file %s" % os.path.split(fileObj)[1])
+                # self.log(" > Skipping file %s" % os.path.split(fileObj)[1])
                 proclen = proclen - 1
                 continue
             self.log(" > Working on file %s" % os.path.split(fileObj)[1])
@@ -595,8 +598,13 @@ class Converter():
         else:
             #print "Sorting by date in file name"
             fs = {}
-            for f in files:
-                fs[self.getDateFromFileName(os.path.split(f)[1])] = f
+            try:
+                for f in files:
+                    fs[self.getDateFromFileName(os.path.split(f)[1])] = f
+            except Exception as exx:
+                print(exx)
+                raise Exception("Error while parsing date from file name. Procedure %s" % self.name)
+
             fa = sorted(fs)
             files = []
             for f in fa:
@@ -636,11 +644,35 @@ class Converter():
             # If the date is already present and the data added are different
             # then it laounch an exception
             if str(self.observationsCheck[observation.getEventime()]) != str(observation):
-                msg = "Observation (%s: %s) is already present in the file (%s)." % (self.name, observation, self.executing['file'])
-                self.addException(msg)
-                raise RedundacyError(msg)
-            else:
-                self.addWarning("Identical observation (%s: %s) has been already processed (file %s), skipping." % (self.name, observation, self.executing['file']))
+                msg = "Observation (%s: %s) is already present in the file (%s)." % (
+                    self.name,
+                    observation,
+                    self.executing['file']
+                )
+                if (
+                    'disable_redundancy_error' not in self.extra
+                    or self.extra['disable_redundancy_error'] is False
+                ):
+                    self.addException(msg)
+                    raise RedundacyError(msg)
+
+                elif (
+                    'disable_redundancy_error' in self.extra
+                    and self.extra['disable_redundancy_error'] is True
+                ):
+                    self.addWarning(msg)
+
+            elif (
+                'disable_identical_warning' not in self.extra
+                or self.extra['disable_identical_warning'] is False
+            ):
+                self.addWarning(
+                    "Identical observation (%s: %s) has been already processed (file %s), skipping." % (
+                        self.name,
+                        observation,
+                        self.executing['file']
+                    )
+                )
         else:
             self.observations.append(observation)
             self.observationsCheck[observation.getEventime()] = observation

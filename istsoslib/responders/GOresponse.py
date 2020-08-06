@@ -94,8 +94,11 @@ class VirtualProcess(ABC):
 
     def getSampligTime(self):
         """Extract sampling time of Virtual procedure"""
-        self.setSampligTime()
-        return self.samplingTime
+        try:
+            self.setSampligTime()
+            return self.samplingTime
+        except Exception as e:
+            return (None, None)
 
     def setSampligTime(self):
         """
@@ -258,7 +261,7 @@ class VirtualProcess(ABC):
         except Exception as e:
             raise Exception("Database error: %s - %s" % (sql, e))
     
-    def getData(self, procedure=None, disableAggregation=True):
+    def getData(self, procedure=None, disableAggregation=True, profile=False):
         """Return the observations of associated procedure
 
 		Args:
@@ -279,7 +282,8 @@ class VirtualProcess(ABC):
 
         virtualFilter = copy.deepcopy(self.filter)
         virtualFilter.procedure = [procedure]
-        virtualFilter.observedProperty = self.procedures[procedure]
+        if not profile:
+            virtualFilter.observedProperty = self.procedures[procedure]
 
         sql = """
             SELECT DISTINCT id_prc, name_prc, name_oty,
@@ -409,7 +413,7 @@ class VirtualProcessProfile(VirtualProcess):
                         FROM %s.procedures
                         JOIN %s.proc_obs
                         ON id_prc = id_prc_fk
-                    ) p1 JOIN %s.observed_properties ON id_opr = id_opr_fk
+                    ) p1 JOIN %s.observed_properties ON id_opr = id_opr_fk ORDER BY id_prc_fk ASC
                 ) p2 JOIN %s.off_proc ON off_proc.id_prc_fk = id_prc
             ) p3 JOIN %s.offerings ON id_off = p3.id_off_fk, %s.foi """ % (
                 (self.filter.sosConfig.schema,)*6
@@ -449,9 +453,9 @@ class VirtualProcessProfile(VirtualProcess):
         sql += """
             ) p1 JOIN %s.observed_properties ON id_opr = id_opr_fk
             ) p2 JOIN %s.off_proc ON off_proc.id_prc_fk = id_prc
-            ) p3 JOIN %s.offerings ON id_off = p3.id_off_fk, demo.foi
+            ) p3 JOIN %s.offerings ON id_off = p3.id_off_fk, %s.foi
             WHERE id_foi = p3.id_foi_fk GROUP BY id_prc, name_prc, geom_foi
-            ORDER BY st_z DESC""" % ((self.filter.sosConfig.schema,)*3)
+            ORDER BY st_z DESC""" % ((self.filter.sosConfig.schema,)*4)
         try:
             result = self.pgdb.select(sql)
 
@@ -479,26 +483,71 @@ class VirtualProcessProfile(VirtualProcess):
             obs = self.observed_properties(self.filter.offering)
         else:
             obs = self.observed_properties(self.filter.offering)
+        
         data = []
-        # start_time = time.time()
+        
+        text_obs = "".join(self.filter.observedProperty)
+        obs= obs[0]
+        obs.reverse()
+        obs_filtered = []
+        for ob in obs:
+            if ob in text_obs:
+                obs_filtered.append(ob)
+                if self.filter.qualityIndex is True:
+                    obs_filtered.append(f"{ob}:qualityIndex")
+            else:
+                for f in self.filter.observedProperty:
+                    if f in ob:
+                         obs_filtered.append(ob)
+                         if self.filter.qualityIndex is True:
+                            obs_filtered.append(f"{ob}:qualityIndex")
+        print(obs_filtered)
+        # print(procs_info)
         for proc in procs_info:
+            proc_with_index = []
+            for k in proc[3]:
+                proc_with_index.append(k)
+                if self.filter.qualityIndex is True:
+                    proc_with_index.append(f"{k}:qualityIndex")
+
             check = False
             obs_tmp = []
-            for i in range(len(obs)):
-                if obs[i] in proc[3]:
-                    obs_tmp.append(obs[i])
+            idx_order = []
+            idx_depth = 0
+            idx_tmp = 1
+            depth = False
+            for i in range(len(obs_filtered)):
+                if obs_filtered[i] in proc_with_index:
+                    if "qualityIndex" not in obs_filtered[i]:
+                        obs_tmp.append(obs_filtered[i]) 
+                    idx_order.append(i+idx_tmp)
+                elif ":depth" in obs_filtered[i]:
+                    depth = True
+                    if "quality" in obs_filtered[i]:
+                        idx_tmp -= 1
+                    else:
+                        idx_depth = i
+                        idx_tmp -= 1
+            
+            if depth:
+                if self.filter.qualityIndex is True:
+                    idx_order.insert(idx_depth,len(obs_filtered)-1)
+                    idx_order.insert(idx_depth+1,len(obs_filtered))
+                else:
+                    idx_order.insert(idx_depth,len(obs_filtered))
+            idx_order.insert(0,0)
             proc[3] = obs_tmp
             if check:
                 raise Exception('Procedure does not measure the required observed properties.')
             else:
                 self.procedures[proc[1]] = self.obs_input
-                data_temp = self.getData(proc[1])
+                data_temp = self.getData(proc[1], profile=True)
+                # print(self.filter.responseFormat)
                 if data_temp:
                     if self.filter.qualityIndex is True:
                         depths_list = [
                             [round(abs(self.coords[2] - proc[2]), 1), 100]
                         ] * len(data_temp)
-
                     else:
                         depths_list = [
                             [round(abs(self.coords[2] - proc[2]), 1)]
@@ -507,17 +556,31 @@ class VirtualProcessProfile(VirtualProcess):
                     data_temp = list(
                         map(add, data_temp, depths_list)
                     )
+                    data_temp[0] = [data_temp[0][i] for i in idx_order]
+                    # data_temp.insert(newindex, l.pop(oldindex))
                     data = data + data_temp
-
-        data.sort(key=lambda row: row[0])
+                
+        # print(self.filter.observedProperty)
+        # print(data)
+        
         if self.filter.qualityIndex is True:
-            data.sort(key=lambda row: row[4], reverse=True)
-
+            data.sort(key=lambda row: row[idx_order.index(len(obs_filtered)-1)])
         else:
-            data.sort(key=lambda row: row[3], reverse=True)
+            data.sort(key=lambda row: row[idx_order.index(len(obs_filtered))])
+        data.sort(key=lambda row: row[0])
 
-        if len(self.obs) != (len(data[0]) - 1):
-            raise Exception("Number of observed properties mismatches")
+        if self.filter.responseFormat == "application/json":
+
+            dict_data = {}
+            for elem in data:
+                if elem[0].isoformat() not in dict_data:
+                    dict_data[elem[0].isoformat() ] = []
+                dict_data[elem[0].isoformat()].append(elem[1:])
+
+            data = dict_data
+        else:
+            if len(self.obs) != (len(data[0]) - 1):
+                raise Exception("Number of observed properties mismatches")
 
         return data
 

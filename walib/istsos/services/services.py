@@ -363,16 +363,27 @@ class waServices(waResourceAdmin):
                 self.waEnviron["services_path"], self.urlservicename,
                 self.urlservicename)
 
+            srcdir = "%s" % os.path.join(
+                self.waEnviron["services_path"], self.urlservicename)
+
             newservicecfgpath = "%s.cfg" % os.path.join(
                 self.waEnviron["services_path"], self.json["service"],
                 self.json["service"])
-
+            destdir = "%s" % os.path.join(
+                self.waEnviron["services_path"], self.json["service"])
             of = open(servicecfgpath, "r")
             content = of.read()
             of.close()
             nf = open(newservicecfgpath, 'w')
             nf.write(content)
             nf.close()
+            files = os.listdir(srcdir)
+            for f in files:
+                if f != "%s.cfg" % self.urlservicename:
+                    try:
+                        shutil.copy(os.path.join(srcdir, f), destdir)
+                    except:
+                        continue
 
         except:
             #remove new files

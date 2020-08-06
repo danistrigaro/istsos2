@@ -506,9 +506,47 @@ INSERT INTO observed_properties VALUES ('water-ph', 'urn:ogc:def:parameter:x-ist
 INSERT INTO observed_properties VALUES ('water-dox', 'urn:ogc:def:parameter:x-istsos:1.0:water:dox', 'water dissolved oxygen', '{"interval": ["0", "1000"], "role": "urn:x-ogc:def:classifiers:x-istsos:1.0:qualityIndexCheck:level0"}', 12);
 INSERT INTO observed_properties VALUES ('water-temperature', 'urn:ogc:def:parameter:x-istsos:1.0:water:temperature', 'water temperature', NULL, 13);
 INSERT INTO observed_properties VALUES ('water-pressure', 'urn:ogc:def:parameter:x-istsos:1.0:water:pressure', 'water pressure', NULL, 14);
-INSERT INTO observed_properties VALUES ('water-depth', 'urn:ogc:def:parameter:x-istsos:1.0:water:depth', 'water depth', NULL, 15);
+INSERT INTO observed_properties VALUES ('water-depth', 'urn:ogc:def:parameter:x-istsos:1.0:water:depth', 'Depth from surface', NULL, 15);
+-- SIMILE PROJECT
+INSERT INTO observed_properties VALUES ('water-Turb', 'urn:ogc:def:parameter:x-istsos:1.0:water:Turb', 'Turbidity', NULL, 16);
+INSERT INTO observed_properties VALUES ('water-TSS', 'urn:ogc:def:parameter:x-istsos:1.0:water:TSS', 'Total suspended solids', NULL, 17);
+INSERT INTO observed_properties VALUES ('water-SDT', 'urn:ogc:def:parameter:x-istsos:1.0:water:SDT', 'Secchi Disk Transparency', NULL, 18);
+INSERT INTO observed_properties VALUES ('water-O2D', 'urn:ogc:def:parameter:x-istsos:1.0:water:O2D', 'Dissolved oxygen', NULL, 19);
+INSERT INTO observed_properties VALUES ('water-O2S', 'urn:ogc:def:parameter:x-istsos:1.0:water:O2S', 'Oxygen saturation', NULL, 20);
+INSERT INTO observed_properties VALUES ('water-EH', 'urn:ogc:def:parameter:x-istsos:1.0:water:EH', 'Redox potential', NULL, 21);
+INSERT INTO observed_properties VALUES ('water-pH', 'urn:ogc:def:parameter:x-istsos:1.0:water:pH', 'pH', NULL, 22);
+INSERT INTO observed_properties VALUES ('water-cond20', 'urn:ogc:def:parameter:x-istsos:1.0:water:cond20', 'Conductivity at 20 °C', NULL, 23);
+INSERT INTO observed_properties VALUES ('water-cond25', 'urn:ogc:def:parameter:x-istsos:1.0:water:cond25', 'Conductivity at 25 °C', NULL, 24);
+INSERT INTO observed_properties VALUES ('water-Alk', 'urn:ogc:def:parameter:x-istsos:1.0:water:Alk', 'Alkalinity', NULL, 25);
+INSERT INTO observed_properties VALUES ('water-Cl', 'urn:ogc:def:parameter:x-istsos:1.0:water:Cl', 'Chloride', NULL, 26);
+INSERT INTO observed_properties VALUES ('water-SO4', 'urn:ogc:def:parameter:x-istsos:1.0:water:SO4', 'Sulphate', NULL, 27);
+INSERT INTO observed_properties VALUES ('water-NO3N', 'urn:ogc:def:parameter:x-istsos:1.0:water:NO3N', 'Nitrates as nitrogen', NULL, 28);
+INSERT INTO observed_properties VALUES ('water-NH4N', 'urn:ogc:def:parameter:x-istsos:1.0:water:NH4N', 'Ammonium as nitrogen', NULL, 29);
+INSERT INTO observed_properties VALUES ('water-Ca', 'urn:ogc:def:parameter:x-istsos:1.0:water:Ca', 'Calcium', NULL, 30);
+INSERT INTO observed_properties VALUES ('water-Mg', 'urn:ogc:def:parameter:x-istsos:1.0:water:Mg', 'Magnesium', NULL, 31);
+INSERT INTO observed_properties VALUES ('water-Na', 'urn:ogc:def:parameter:x-istsos:1.0:water:Na', 'Sodium', NULL, 32);
+INSERT INTO observed_properties VALUES ('water-K', 'urn:ogc:def:parameter:x-istsos:1.0:water:K', 'Potassium', NULL, 33);
+INSERT INTO observed_properties VALUES ('water-PO4P', 'urn:ogc:def:parameter:x-istsos:1.0:water:PO4P', 'Phosphate as phosporus', NULL, 34);
+INSERT INTO observed_properties VALUES ('water-PTOT', 'urn:ogc:def:parameter:x-istsos:1.0:water:PTOT', 'Total phosporus', NULL, 35);
+INSERT INTO observed_properties VALUES ('water-TN', 'urn:ogc:def:parameter:x-istsos:1.0:water:TN', 'Total Nitrogen', NULL, 36);
+INSERT INTO observed_properties VALUES ('water-Si', 'urn:ogc:def:parameter:x-istsos:1.0:water:Si', 'Silica', NULL, 37);
+INSERT INTO observed_properties VALUES ('water-NO2N', 'urn:ogc:def:parameter:x-istsos:1.0:water:NO2N', 'Nitrate as nitrogen', NULL, 38);
+INSERT INTO observed_properties VALUES ('water-TOC', 'urn:ogc:def:parameter:x-istsos:1.0:water:TOC', 'Total organic carbon', NULL, 39);
+INSERT INTO observed_properties VALUES ('water-DOC', 'urn:ogc:def:parameter:x-istsos:1.0:water:DOC', 'Dissolved organic carbon', NULL, 40);
+INSERT INTO observed_properties VALUES ('water-Chl-a', 'urn:ogc:def:parameter:x-istsos:1.0:water:Chl-a', 'Chlorophyll a', NULL, 41);
+INSERT INTO observed_properties VALUES ('water-chl', 'urn:ogc:def:parameter:x-istsos:1.0:water:chl', 'Total chlorophyll', NULL, 42);
+INSERT INTO observed_properties VALUES ('water-PC', 'urn:ogc:def:parameter:x-istsos:1.0:water:PC', 'Phycocianin', NULL, 43);
+INSERT INTO observed_properties VALUES ('water-PE', 'urn:ogc:def:parameter:x-istsos:1.0:water:PE', 'Phycoeritrin', NULL, 44);
+INSERT INTO observed_properties VALUES ('water-PAR', 'urn:ogc:def:parameter:x-istsos:1.0:water:PAR', 'Photosynthetic active radiation', NULL, 45);
+INSERT INTO observed_properties VALUES ('water-CO3', 'urn:ogc:def:parameter:x-istsos:1.0:water:CO3', 'Carbonate', NULL, 46);
+INSERT INTO observed_properties VALUES ('water-Fe', 'urn:ogc:def:parameter:x-istsos:1.0:water:Fe', 'Iron', NULL, 47);
+INSERT INTO observed_properties VALUES ('water-Mn', 'urn:ogc:def:parameter:x-istsos:1.0:water:Mn', 'Manganese', NULL, 48);
+INSERT INTO observed_properties VALUES ('water-S', 'urn:ogc:def:parameter:x-istsos:1.0:water:S', 'Sulfur', NULL, 49);
+INSERT INTO observed_properties VALUES ('water-CH4', 'urn:ogc:def:parameter:x-istsos:1.0:water:CH4', 'Methane', NULL, 50);
+INSERT INTO observed_properties VALUES ('Autoscale', 'urn:ogc:def:parameter:x-istsos:1.0:Autoscale', 'Autoscale', NULL, 51);
 
-SELECT pg_catalog.setval('obs_pr_id_opr_seq', 15, true);
+
+SELECT pg_catalog.setval('obs_pr_id_opr_seq', 51, true);
 
 --=====================================
 -- ADDING UNIT OF MEASURES
@@ -525,7 +563,17 @@ INSERT INTO uoms VALUES ('m3/s', 'cube meter per second', 8);
 INSERT INTO uoms VALUES ('mm/h', 'millimiters per hour', 9);
 INSERT INTO uoms VALUES ('mg/l', 'milligrams per liter', 10);
 INSERT INTO uoms VALUES ('hPa', 'hecto Pascal', 11);
-SELECT pg_catalog.setval('uoms_id_uom_seq', 11, true);
+-- SIMILE PROJECT
+INSERT INTO uoms VALUES ('FTU', '', 12);
+INSERT INTO uoms VALUES ('mg l-1', '', 13);
+INSERT INTO uoms VALUES ('mV', '', 14);
+INSERT INTO uoms VALUES ('µS cm-1', '', 15);
+INSERT INTO uoms VALUES ('meq l-1', '', 16);
+INSERT INTO uoms VALUES ('µg l-1', '', 17);
+INSERT INTO uoms VALUES ('μmoles/sec/m²', '', 18);
+INSERT INTO uoms VALUES ('μeq l-1', '', 19);
+
+SELECT pg_catalog.setval('uoms_id_uom_seq', 19, true);
 
 --=====================================
 -- ADDING FUNCTIONS

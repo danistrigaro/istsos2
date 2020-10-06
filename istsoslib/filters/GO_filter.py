@@ -499,7 +499,7 @@ class sosGOfilter(f.sosFilter):
                                 requestObject["qualityfilter"][0]=='~'):
                             if requestObject["qualityfilter"][0:2]=='~*':
                                 self.qualityFilter = (requestObject["qualityfilter"][0:2], requestObject["qualityfilter"][2:])
-                                print(self.qualityFilter)
+                                # print(self.qualityFilter)
                             else:
                                 self.qualityFilter = (requestObject["qualityfilter"][0], float(requestObject["qualityfilter"][1:]))
 

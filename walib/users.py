@@ -27,28 +27,7 @@ import sys
 
 def getUser(environ):
     # if config.authentication:
-    if 'HTTP_AUTHORIZATION' in environ:
-        import hashlib
-        import base64
-        from os import path
-        try:
-            import cPickle as pic
-        except ImportError:
-            try:
-                import pickle as pic
-            except ImportError as ie:
-                print(
-                    "Failed to import pickle from any known place",
-                    file=sys.stderr
-                )
-                raise ie
-        s, base64string = environ['HTTP_AUTHORIZATION'].split()
-        username, password = base64.b64decode(base64string).decode().split(':')
-        passwordFile = path.join(config.services_path, "istsos.passwd")
-        with open(passwordFile, 'rb') as f:
-            users = pic.load(f)
-            return User(username, users[username])
-            # environ["user"] = User(username, users[username])
+    
     if 'OIDC_CLAIM_groups' in environ:
         if 'admin' in environ['OIDC_CLAIM_groups'].split(','):
             return User(environ['OIDC_CLAIM_preferred_username'], {
@@ -77,6 +56,29 @@ def getUser(environ):
                     }
                 }
             })
+
+    if 'HTTP_AUTHORIZATION' in environ:
+        import hashlib
+        import base64
+        from os import path
+        try:
+            import cPickle as pic
+        except ImportError:
+            try:
+                import pickle as pic
+            except ImportError as ie:
+                print(
+                    "Failed to import pickle from any known place",
+                    file=sys.stderr
+                )
+                raise ie
+        s, base64string = environ['HTTP_AUTHORIZATION'].split()
+        username, password = base64.b64decode(base64string).decode().split(':')
+        passwordFile = path.join(config.services_path, "istsos.passwd")
+        with open(passwordFile, 'rb') as f:
+            users = pic.load(f)
+            return User(username, users[username])
+            # environ["user"] = User(username, users[username])
     # else:
     #    raise Exception("Authorization is enabled in config file but HTTP_AUTHORIZATION header not present. Check the security page in the documentation")
 

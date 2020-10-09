@@ -57,7 +57,7 @@ def getUser(environ):
                 }
             })
 
-    if 'HTTP_AUTHORIZATION' in environ:
+    if 'HTTP_AUTHORIZATION' in environ and 'OIDC_CLAIM_groups' not in environ:
         import hashlib
         import base64
         from os import path

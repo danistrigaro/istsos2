@@ -87,11 +87,13 @@ def executeWa(environ, start_response):
 
     # Passing the basic authentication header in waEnviron
     #   Shall be used in istSOS lib request from walib
-    if 'OICD_access_token' in environ:
-        waEnviron['HTTP_AUTHORIZATION'] = 'Bearer ' + str(environ['OICD_acess_token'])
+    if 'OIDC_access_token' in environ:
+        waEnviron['HTTP_AUTHORIZATION'] = 'Bearer ' + str(environ['OIDC_access_token'])
 
     if 'HTTP_AUTHORIZATION' in environ and not 'OICD_access_token':
         waEnviron['HTTP_AUTHORIZATION'] = str(environ['HTTP_AUTHORIZATION'])
+
+    
     try:
 
         try:

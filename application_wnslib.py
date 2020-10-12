@@ -77,8 +77,11 @@ def executeWns(environ, start_response):
         "services_path": config.services_path,
     }
     
-    if 'HTTP_AUTHORIZATION' in environ:
-        wnsEnviron['HTTP_AUTHORIZATION'] = environ['HTTP_AUTHORIZATION']
+    if 'OICD_access_token' in environ:
+        waEnviron['HTTP_AUTHORIZATION'] = 'Bearer ' + str(environ['OICD_acess_token'])
+
+    if 'HTTP_AUTHORIZATION' in environ and not 'OICD_access_token':
+        waEnviron['HTTP_AUTHORIZATION'] = str(environ['HTTP_AUTHORIZATION'])
 
     try:
 

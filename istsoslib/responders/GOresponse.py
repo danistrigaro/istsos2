@@ -484,8 +484,8 @@ class VirtualProcessProfile(VirtualProcess):
         data = []
         
         text_obs = "".join(self.filter.observedProperty)
-        obs= obs[0]
-        obs.reverse()
+        obs = obs[0]
+        # obs.reverse()
         obs_filtered = []
         for ob in obs:
             if ob in text_obs:
@@ -498,8 +498,7 @@ class VirtualProcessProfile(VirtualProcess):
                          obs_filtered.append(ob)
                          if self.filter.qualityIndex is True:
                             obs_filtered.append(f"{ob}:qualityIndex")
-        print(obs_filtered)
-        # print(procs_info)
+
         for proc in procs_info:
             proc_with_index = []
             for k in proc[3]:
@@ -557,10 +556,6 @@ class VirtualProcessProfile(VirtualProcess):
                     data_temp[0] = [data_temp[0][i] for i in idx_order]
                     # data_temp.insert(newindex, l.pop(oldindex))
                     data = data + data_temp
-                
-        # print(self.filter.observedProperty)
-        # print(data)
-        
         if self.filter.qualityIndex is True:
             data.sort(key=lambda row: row[idx_order.index(len(obs_filtered)-1)])
         else:

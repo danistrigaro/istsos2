@@ -316,6 +316,8 @@ class VirtualProcess(ABC):
 
         obs.setData(self.pgdb, result, virtualFilter)
 
+        print(obs.data)
+
         return obs.data
 
     def applyFunction(self):
@@ -498,7 +500,10 @@ class VirtualProcessProfile(VirtualProcess):
                          obs_filtered.append(ob)
                          if self.filter.qualityIndex is True:
                             obs_filtered.append(f"{ob}:qualityIndex")
-
+        # check = False
+        # idx_depth = 0
+        # idx_tmp = 1
+        # depth = False
         for proc in procs_info:
             proc_with_index = []
             for k in proc[3]:
@@ -553,7 +558,8 @@ class VirtualProcessProfile(VirtualProcess):
                     data_temp = list(
                         map(add, data_temp, depths_list)
                     )
-                    data_temp[0] = [data_temp[0][i] for i in idx_order]
+                    for ik in range(len(data_temp)):
+                        data_temp[ik] = [data_temp[ik][i] for i in idx_order]
                     # data_temp.insert(newindex, l.pop(oldindex))
                     data = data + data_temp
         if self.filter.qualityIndex is True:

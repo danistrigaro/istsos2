@@ -485,7 +485,7 @@ class VirtualProcessProfile(VirtualProcess):
         
         text_obs = "".join(self.filter.observedProperty)
         obs = obs[0]
-        # obs.reverse()
+        obs.reverse()
         obs_filtered = []
         for ob in obs:
             if ob in text_obs:

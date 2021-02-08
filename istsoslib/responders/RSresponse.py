@@ -103,7 +103,7 @@ class RegisterSensorResponse:
             if filter.systemType in [
                 'insitu-fixed-point',
                 'insitu-fixed-specimen',
-                'virtual', 'profile',
+                'virtual', 'virtual-profile', 'profile',
                 None]:
                 
                 if filter.systemType == None:
@@ -208,7 +208,7 @@ class RegisterSensorResponse:
         # for uom in filter.uoms:
         for i, uom in enumerate(filter.uoms):
             par = filter.parameters[i]
-            if oty in ['insitu-fixed-point','insitu-fixed-specimen','virtual','profile']:
+            if oty in ['insitu-fixed-point','insitu-fixed-specimen','virtual', 'virtual-profile', 'profile']:
                 if not par.split(":")[-1] == "iso8601":
                     sqlId = "SELECT id_uom FROM %s.uoms" % (
                         filter.sosConfig.schema)
@@ -392,7 +392,7 @@ class RegisterSensorResponse:
                     _namespace_map[ns[key]] = key
 
         # Create virtual procedure folder if system type is virtual
-        if oty == "virtual" or oty == "profile":
+        if oty == "virtual" or oty == "virtual-profile":
             procedureFolder = os.path.join(
                 filter.sosConfig.virtual_processes_folder, filter.procedure)
             if not os.path.exists(procedureFolder):

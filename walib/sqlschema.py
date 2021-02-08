@@ -107,7 +107,7 @@ CREATE TABLE measures (
     id_eti_fk bigint NOT NULL,
     id_qi_fk integer NOT NULL,
     id_pro_fk integer NOT NULL,
-    val_msr numeric(10,6) NOT NULL
+    val_msr double precision NOT NULL
 );
 COMMENT ON TABLE measures IS 'Stores the measures of the Procedure.';
 
@@ -117,6 +117,25 @@ CREATE SEQUENCE measures_id_msr_seq
     NO MINVALUE
     CACHE 1;
 ALTER SEQUENCE measures_id_msr_seq OWNED BY measures.id_msr;
+
+--=====================================
+
+CREATE TABLE profiles (
+    id_pfl bigint NOT NULL,
+    id_eti_fk bigint NOT NULL,
+    id_qi_fk integer NOT NULL,
+    id_pro_fk integer NOT NULL,
+    val_msr double precision NOT NULL,
+    val_depth double precision NOT NULL
+);
+COMMENT ON TABLE profiles IS 'Stores the profiles of the Procedure.';
+
+CREATE SEQUENCE profiles_id_pfl_seq
+    INCREMENT BY 1
+    NO MAXVALUE
+    NO MINVALUE
+    CACHE 1;
+ALTER SEQUENCE profiles_id_pfl_seq OWNED BY profiles.id_pfl;
 
 --=====================================
 
@@ -329,6 +348,7 @@ ALTER TABLE event_time ALTER COLUMN id_eti SET DEFAULT nextval('event_time_id_et
 ALTER TABLE feature_type ALTER COLUMN id_fty SET DEFAULT nextval('feature_type_id_fty_seq'::regclass);
 ALTER TABLE foi ALTER COLUMN id_foi SET DEFAULT nextval('foi_id_foi_seq'::regclass);
 ALTER TABLE measures ALTER COLUMN id_msr SET DEFAULT nextval('measures_id_msr_seq'::regclass);
+ALTER TABLE profiles ALTER COLUMN id_pfl SET DEFAULT nextval('profiles_id_pfl_seq'::regclass);
 ALTER TABLE obs_type ALTER COLUMN id_oty SET DEFAULT nextval('obs_type_id_oty_seq'::regclass);
 ALTER TABLE observed_properties ALTER COLUMN id_opr SET DEFAULT nextval('obs_pr_id_opr_seq'::regclass);
 ALTER TABLE off_proc ALTER COLUMN id_off_prc SET DEFAULT nextval('off_proc_id_opr_seq'::regclass);
@@ -355,8 +375,12 @@ ALTER TABLE ONLY foi
     ADD CONSTRAINT foi_pkey PRIMARY KEY (id_foi);
 ALTER TABLE ONLY measures
     ADD CONSTRAINT measures_fix_pkey PRIMARY KEY (id_msr);
+ALTER TABLE ONLY profiles
+    ADD CONSTRAINT profiles_fix_pkey PRIMARY KEY (id_pfl);
 ALTER TABLE ONLY measures
     ADD CONSTRAINT measures_id_eti_fk_key UNIQUE (id_eti_fk, id_pro_fk);
+ALTER TABLE ONLY profiles
+    ADD CONSTRAINT profiles_id_eti_fk_key UNIQUE (id_eti_fk, id_pro_fk, val_depth);
 ALTER TABLE ONLY positions
     ADD CONSTRAINT measures_mobile_pkey PRIMARY KEY (id_pos);
 ALTER TABLE ONLY observed_properties
@@ -399,6 +423,12 @@ ALTER TABLE ONLY measures
     ADD CONSTRAINT measures_id_pro_fk_fkey FOREIGN KEY (id_pro_fk) REFERENCES proc_obs(id_pro);
 ALTER TABLE ONLY positions
     ADD CONSTRAINT measures_mobile_id_qi_fk_fkey FOREIGN KEY (id_qi_fk) REFERENCES quality_index(id_qi) ON UPDATE CASCADE;
+ALTER TABLE ONLY profiles
+    ADD CONSTRAINT profiles_fix_id_qi_fk_fkey FOREIGN KEY (id_qi_fk) REFERENCES quality_index(id_qi) ON UPDATE CASCADE;
+ALTER TABLE ONLY profiles
+    ADD CONSTRAINT profiles_id_eti_fk_fkey FOREIGN KEY (id_eti_fk) REFERENCES event_time(id_eti) ON DELETE CASCADE;
+ALTER TABLE ONLY profiles
+    ADD CONSTRAINT profiles_id_pro_fk_fkey FOREIGN KEY (id_pro_fk) REFERENCES proc_obs(id_pro);
 ALTER TABLE ONLY off_proc
     ADD CONSTRAINT off_proc_id_off_fk_fkey FOREIGN KEY (id_off_fk) REFERENCES offerings(id_off) ON DELETE CASCADE;
 ALTER TABLE ONLY off_proc
@@ -445,6 +475,12 @@ ON measures USING btree (id_eti_fk);
 CREATE INDEX idx_msr_eti_pro
 ON measures USING btree (id_eti_fk, id_pro_fk);
 
+CREATE INDEX idx_pfl_id_eti_fk
+ON profiles USING btree (id_eti_fk);
+
+CREATE INDEX idx_pfl_eti_pro
+ON profiles USING btree (id_eti_fk, id_pro_fk);
+
 CREATE UNIQUE INDEX idx_spec_identifier
 ON specimens(identifier);
 
@@ -487,7 +523,8 @@ INSERT INTO obs_type (id_oty, name_oty, desc_oty) VALUES (1, 'insitu-fixed-point
 INSERT INTO obs_type (id_oty, name_oty, desc_oty) VALUES (2, 'insitu-mobile-point', 'mobile, in-situ, pointwise observation');
 INSERT INTO obs_type (id_oty, name_oty, desc_oty) VALUES (3, 'virtual', 'virtual procedure');
 INSERT INTO obs_type (id_oty, name_oty, desc_oty) VALUES (4, 'insitu-fixed-specimen', 'fixed, in-situ, pointwise observation from specimen');
-INSERT INTO obs_type (id_oty, name_oty, desc_oty) VALUES (5, 'profile', 'virtual profile');
+INSERT INTO obs_type (id_oty, name_oty, desc_oty) VALUES (5, 'virtual-profile', 'virtual profile data');
+INSERT INTO obs_type (id_oty, name_oty, desc_oty) VALUES (6, 'profile', 'profile data');
 
 --=====================================
 -- ADDING OBSERVED PROPERTIES

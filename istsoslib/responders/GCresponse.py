@@ -714,7 +714,7 @@ class ObservationOfferingList_2_0_0:
             off.systemType = row["name_oty"]
             
             #print >> sys.stderr, "systemType: %s" % off.systemType
-            if off.systemType == 'virtual' or off.systemType == 'profile':
+            if off.systemType == 'virtual' or off.systemType == 'virtual-profile':
                 
                 vpFolder = os.path.join(sosConfig.virtual_processes_folder, off.identifier)
                 try:

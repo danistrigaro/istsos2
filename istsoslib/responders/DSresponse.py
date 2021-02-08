@@ -69,7 +69,7 @@ class DescribeSensorResponse:
             self.procedureType = None
             
         
-        if self.procedureType == 'virtual' or self.procedureType == 'profile':
+        if self.procedureType == 'virtual' or self.procedureType == 'virtual-profile':
             vpFolder = os.path.join(filter.sosConfig.virtual_processes_folder,filter.procedure)
             try:
                 sys.path.append(vpFolder)

@@ -147,7 +147,7 @@ class VirtualProcess(ABC):
 
                 result = result[0]
 
-                if result[0] == 'virtual' or result[0] == 'profile':
+                if result[0] == 'virtual' or result[0] == 'virtual-profile':
                     vpFolder = os.path.join(self.filter.sosConfig.virtual_processes_folder,p)
                     try:
                         if vpFolder not in sys.path:
@@ -256,7 +256,7 @@ class VirtualProcess(ABC):
         except Exception as e:
             raise Exception("Database error: %s - %s" % (sql, e))
     
-    def getData(self, procedure=None, disableAggregation=True, profile=False):
+    def getData(self, procedure=None, disableAggregation=True, virtual_profile=False):
         """Return the observations of associated procedure
 
 		Args:
@@ -277,7 +277,7 @@ class VirtualProcess(ABC):
 
         virtualFilter = copy.deepcopy(self.filter)
         virtualFilter.procedure = [procedure]
-        if not profile:
+        if not virtual_profile:
             virtualFilter.observedProperty = self.procedures[procedure]
 
         sql = """
@@ -542,7 +542,7 @@ class VirtualProcessProfile(VirtualProcess):
                 raise Exception('Procedure does not measure the required observed properties.')
             else:
                 self.procedures[proc[1]] = self.obs_input
-                data_temp = self.getData(proc[1], profile=True)
+                data_temp = self.getData(proc[1], virtual_profile=True)
                 # print(self.filter.responseFormat)
                 if data_temp:
                     if self.filter.qualityIndex is True:
@@ -933,7 +933,7 @@ class Observation:
             "insitu-fixed-point",
             "insitu-fixed-specimen",
             "insitu-mobile-point",
-            "virtual", "profile"]:
+            "virtual", "virtual-profile", "profile"]:
             self.procedureType=row["name_oty"]
         else:
             raise Exception("error in procedure type setting")
@@ -1018,410 +1018,764 @@ class Observation:
                 self.uom += ["-"]
 
         # SET DATA
-        #  CASE is not virtual #"insitu-fixed-point", "insitu-mobile-point" or "insiru-fixed-specimen"
-        if self.procedureType != "virtual" and self.procedureType != "profile":
+        #  CASE is not virtual #"insitu-fixed-point", "insitu-mobile-point" or "insiru-fixed-specimen" or "profile"
+        if self.procedureType != "virtual" and self.procedureType != "virtual-profile":
 
-            sqlSel = "SELECT "
+            if self.procedureType=="profile":
+                sqlSel = "SELECT "
 
-            csv_sql_cols = [
-                "row_to_json(row(time_eti))->>'f1'"
-            ]
-            if 'text/plain' == filter.responseFormat:
-                csv_sql_cols.append("'%s'" % self.name)
+                csv_sql_cols = [
+                    "row_to_json(row(time_eti))->>'f1'"
+                ]
+                if 'text/plain' == filter.responseFormat:
+                    csv_sql_cols.append("'%s'" % self.name)
 
-            csv_sql_sel = """
-                SELECT
-            """
-            joinar=[]
-            cols=['et.time_eti as t']
+                csv_sql_sel = """
+                    SELECT
+                """
+                joinar=[]
+                cols=['et.time_eti as t']
 
-            aggrCols=["row_to_json(row(ts.sint))->>'f1' as t"]
-            csv_aggr_cols=["row_to_json(row(ts.sint))->>'f1'"]
-            if 'text/plain' == filter.responseFormat:
-                csv_aggr_cols.append("'%s'" % self.name)
-            aggrNotNull=[]
+                aggrCols=["row_to_json(row(ts.sint))->>'f1' as t"]
+                csv_aggr_cols=["row_to_json(row(ts.sint))->>'f1'"]
+                if 'text/plain' == filter.responseFormat:
+                    csv_aggr_cols.append("'%s'" % self.name)
+                aggrNotNull=[]
 
-            valeFieldName = []
-            qi_field_name = []
-            for idx, obspr_row in enumerate(obspr_res):
-                if self.qualityIndex==True:
-
-                    cols += [
-                        "C%s.val_msr as c%s_v" % (idx, idx),
-                        "COALESCE(C%s.id_qi_fk, %s) as c%s_qi" % (
-                            idx,
-                            filter.aggregate_nodata_qi,
-                            idx
-                        )
-                    ]
-                    csv_sql_cols += [
-                        "C%s.val_msr" % idx,
-                        "COALESCE(C%s.id_qi_fk, %s)" % (idx, filter.aggregate_nodata_qi)
-                    ]
-
-                    valeFieldName.append("c%s_v" %(idx))
-                    valeFieldName.append("c%s_qi" %(idx))
-                    qi_field_name.append("C%s.id_qi_fk" %(idx))
-
-                else:
-                    cols.append("C%s.val_msr as c%s_v" %(idx,idx))
-                    csv_sql_cols.append("C%s.val_msr" %(idx))
-                    valeFieldName.append("c%s_v" %(idx))
-
-                # If Aggregatation funtion is set
-                if filter.aggregate_interval != None:
-                    # This accept only numeric results
-                    aggrCols.append(
-                        "COALESCE(%s(dt.c%s_v),'%s')" % (
-                            filter.aggregate_function,
-                            idx,
-                            filter.aggregate_nodata
-                        )
-                    )
-                    csv_aggr_cols.append(
-                        "COALESCE(%s(dt.c%s_v),'%s')" % (
-                            filter.aggregate_function,
-                            idx,
-                            filter.aggregate_nodata
-                        )
-                    )
+                valeFieldName = []
+                qi_field_name = []
+                for idx, obspr_row in enumerate(obspr_res):
                     if self.qualityIndex==True:
-                        aggrCols.append("COALESCE(MIN(dt.c%s_qi),%s) as c%s_qi\n" % (
-                            idx,
-                            filter.aggregate_nodata_qi,
-                            idx
-                        ))
-                        csv_aggr_cols.append("COALESCE(MIN(dt.c%s_qi),%s)" % (
-                            idx,
-                            filter.aggregate_nodata_qi
-                        ))
 
-                    aggrNotNull.append(" c%s_v > -900 " %(idx))
+                        cols += [
+                            "C%s.val_msr as c%s_v" % (idx, idx),
+                            "COALESCE(C%s.id_qi_fk, %s) as c%s_qi" % (
+                                idx,
+                                filter.aggregate_nodata_qi,
+                                idx
+                            )
+                        ]
+                        csv_sql_cols += [
+                            "C%s.val_msr" % idx,
+                            "COALESCE(C%s.id_qi_fk, %s)" % (idx, filter.aggregate_nodata_qi)
+                        ]
 
-                # Set SQL JOINS
-                join_txt = """
-                    LEFT JOIN (
-                        SELECT
-                            A%s.id_msr,
-                            A%s.val_msr,
-                            A%s.id_eti_fk
-                """ % (idx, idx, idx)
-
-                if self.qualityIndex==True:
-                    join_txt += ", A%s.id_qi_fk\n" %(idx)
-
-                join_txt += """
-                        FROM
-                            %s.measures A%s
-                        WHERE
-                            A%s.id_pro_fk = %s
-                """ % (
-                    filter.sosConfig.schema, idx,
-                    idx, obspr_row["id_pro"]
-                )
-
-                # ATTENTION: HERE -999 VALUES ARE EXCLUDED WHEN ASKING AN AGGREAGATE FUNCTION
-                if filter.aggregate_interval != None: # >> Should be removed because measures data is not inserted if there is a nodata value
-                    join_txt += " AND A%s.val_msr > -900 " % idx
-
-                # close SQL JOINS
-                join_txt += " ) as C%s\n" %(idx)
-                join_txt += " on C%s.id_eti_fk = et.id_eti" %(idx)
-                joinar.append(join_txt)
-
-            # If MOBILE PROCEDURE
-            if self.procedureType=="insitu-mobile-point":
-                join_txt = """
-                    LEFT JOIN (
-                        SELECT
-                            Ax.id_pos,
-                            st_X(ST_Transform(Ax.geom_pos,%s)) as x,
-                            st_Y(ST_Transform(Ax.geom_pos,%s)) as y,
-                            st_Z(ST_Transform(Ax.geom_pos,%s)) as z,
-                            Ax.id_eti_fk
-                """ %(
-                    filter.srsName,
-                    filter.srsName,
-                    filter.srsName
-                )
-                
-                if self.qualityIndex==True:
-                    join_txt += ", Ax.id_qi_fk as posqi\n"
-
-                join_txt += """
-                    FROM
-                        %s.positions Ax,
-                        %s.event_time Bx
-                    WHERE
-                        Ax.id_eti_fk = Bx.id_eti
-                    AND
-                        Bx.id_prc_fk = %s
-                """ %(
-                    filter.sosConfig.schema,
-                    filter.sosConfig.schema,
-                    row["id_prc"]
-                )
-
-                join_txt += " ) as Cx on Cx.id_eti_fk = et.id_eti\n"
-                cols.extend([
-                    "Cx.x as x",
-                    "Cx.y as y",
-                    "Cx.z as z"
-                ])
-                csv_sql_cols.extend([
-                    "Cx.x",
-                    "Cx.y",
-                    "Cx.z"
-                ])
-                if self.qualityIndex==True:
-                    cols.append("Cx.posqi")
-                    csv_sql_cols.append("Cx.posqi")
-
-                joinar.append(join_txt)
-
-            # Set FROM CLAUSE
-            sqlSel += "%s FROM %s.event_time et" % (
-                ", ".join(cols), filter.sosConfig.schema
-            )
-
-            # Set FROM CLAUSE
-            csv_sql_sel += "%s FROM %s.event_time et" % (
-                (
-                    ",".join(cols)
-                    if filter.aggregate_interval != None
-                    else " || ',' || ".join(csv_sql_cols)
-                ),
-                filter.sosConfig.schema
-            )
-
-            # Set WHERE CLAUSES
-            sqlData = " ".join(joinar)
-            sqlData += " WHERE et.id_prc_fk=%s\n" %(row["id_prc"])
-
-            # Set FILTER ON RESULT (OGC:COMPARISON)
-            if filter.result:
-                for ind, ov in enumerate(self.observedProperty):
-                    if ov.find(filter.result[0])>0:
-                        sqlData += " AND C%s.val_msr %s" %(ind,filter.result[1])
-
-            # Set FILTER ON EVENT-TIME
-            if filter.eventTime:
-                sqlData += " AND ("
-                etf=[]
-                for ft in filter.eventTime:
-                    if len(ft)==2:
-                        etf.append("et.time_eti > timestamptz '%s' AND et.time_eti <= timestamptz '%s' " %(ft[0],ft[1]))
-
-                    elif len(ft)==1:
-                        etf.append("et.time_eti = timestamptz '%s' " %(ft[0]))
+                        valeFieldName.append("c%s_v" %(idx))
+                        valeFieldName.append("c%s_qi" %(idx))
+                        qi_field_name.append("C%s.id_qi_fk" %(idx))
 
                     else:
-                        raise Exception("error in time filter")
+                        cols.append("C%s.val_msr as c%s_v" %(idx,idx))
+                        csv_sql_cols.append("C%s.val_msr" %(idx))
+                        valeFieldName.append("c%s_v" %(idx))
 
-                sqlData += " OR ".join(etf)
-                sqlData +=  ")\n"
-
-            else:
-                # Get last observed measuement
-                sqlData += " AND et.time_eti = (SELECT max(time_eti) FROM %s.event_time WHERE id_prc_fk=%s) " %(filter.sosConfig.schema,row["id_prc"])
-
-            # Quality index filtering
-            if (
-                self.qualityIndex==True and
-                filter.qualityFilter
-            ):
-                if filter.qualityFilter[0]=='<':
-                    qi_sql = []
-                    for qi_field in qi_field_name:
-                        qi_sql.append(
-                            " %s < %s " % (
-                                qi_field,
-                                filter.qualityFilter[1]
+                    # If Aggregatation funtion is set
+                    if filter.aggregate_interval != None:
+                        # This accept only numeric results
+                        aggrCols.append(
+                            "COALESCE(%s(dt.c%s_v),'%s')" % (
+                                filter.aggregate_function,
+                                idx,
+                                filter.aggregate_nodata
                             )
                         )
-                    sqlData += " AND (%s)" % " AND ".join(qi_sql)
-
-                elif filter.qualityFilter[0]=='>':
-                    qi_sql = []
-                    for qi_field in qi_field_name:
-                        qi_sql.append(
-                            " %s > %s " % (
-                                qi_field,
-                                filter.qualityFilter[1]
+                        csv_aggr_cols.append(
+                            "COALESCE(%s(dt.c%s_v),'%s')" % (
+                                filter.aggregate_function,
+                                idx,
+                                filter.aggregate_nodata
                             )
                         )
-                    sqlData += " AND (%s)" % " AND ".join(qi_sql)
+                        if self.qualityIndex==True:
+                            aggrCols.append("COALESCE(MIN(dt.c%s_qi),%s) as c%s_qi\n" % (
+                                idx,
+                                filter.aggregate_nodata_qi,
+                                idx
+                            ))
+                            csv_aggr_cols.append("COALESCE(MIN(dt.c%s_qi),%s)" % (
+                                idx,
+                                filter.aggregate_nodata_qi
+                            ))
 
-                elif filter.qualityFilter[0]=='>=':
-                    qi_sql = []
-                    for qi_field in qi_field_name:
-                        qi_sql.append(
-                            " %s >= %s " % (
-                                qi_field,
-                                filter.qualityFilter[1]
-                            )
-                        )
-                    sqlData += " AND (%s)" % " AND ".join(qi_sql)
+                        aggrNotNull.append(" c%s_v > -900 " %(idx))
 
-                elif filter.qualityFilter[0]=='<=':
-                    qi_sql = []
-                    for qi_field in qi_field_name:
-                        qi_sql.append(
-                            " %s <= %s " % (
-                                qi_field,
-                                filter.qualityFilter[1]
-                            )
-                        )
-                    sqlData += " AND (%s)" % " AND ".join(qi_sql)
+                    # Set SQL JOINS
+                    join_txt = """
+                        LEFT JOIN (
+                            SELECT
+                                A%s.id_pfl,
+                                A%s.val_msr,
+                                A%s.id_eti_fk,
+                                A%s.val_depth
+                    """ % (idx, idx, idx, idx)
 
-                elif filter.qualityFilter[0]=='=':
-                    qi_sql = []
-                    for qi_field in qi_field_name:
-                        qi_sql.append(
-                            " %s = %s " % (
-                                qi_field,
-                                filter.qualityFilter[1]
-                            )
-                        )
-                    sqlData += " AND (%s)" % " OR ".join(qi_sql)
-                elif filter.qualityFilter[0]=='~*':
-                    qi_sql = []
-                    for qi_field in qi_field_name:
-                        qi_sql.append(
-                            " %s::text ~* \'%s\' " % (
-                                qi_field,
-                                filter.qualityFilter[1]
-                            )
-                        )
-                    sqlData += " AND (%s)" % " OR ".join(qi_sql)
+                    if self.qualityIndex==True:
+                        join_txt += ", A%s.id_qi_fk\n" %(idx)
 
-            sqlData += " ORDER by et.time_eti"
-
-            sql = sqlSel + sqlData
-            csv_sql = csv_sql_sel + sqlData
-
-            if filter.aggregate_interval != None:
-                self.aggregate_function = filter.aggregate_function.upper()
-
-                # Interval preparation
-                # Converting ISO 8601 duration
-                isoInt = iso.parse_duration(filter.aggregate_interval)
-                sqlInt = ""
-
-                if isinstance(isoInt, timedelta):
-
-                    if isoInt.days>0:
-                        sqlInt += "%s days " % isoInt.days
-
-                    if isoInt.seconds>0:
-                        sqlInt += "%s seconds " % isoInt.seconds
-
-                elif isinstance(isoInt, iso.Duration):
-                    if isoInt.years>0:
-                        sqlInt += "%s years " % isoInt.years
-
-                    if isoInt.months>0:
-                        sqlInt += "%s months " % int(isoInt.months)
-
-                    if isoInt.days>0:
-                        sqlInt += "%s days " % isoInt.days
-
-                    if isoInt.seconds>0:
-                        sqlInt += "%s seconds " % isoInt.seconds
-
-                # @todo improve this part
-                # calculate how many step are included in the asked interval.
-                hopBefore = 1
-                hop = 0
-                tmpStart = iso.parse_datetime(filter.eventTime[0][0])
-                tmpEnd = self.samplingTime[1]
-
-                while (tmpStart+isoInt)<=tmpEnd and (tmpStart+isoInt)<=iso.parse_datetime(filter.eventTime[0][1]):
-
-                    if tmpStart <  self.samplingTime[0]:
-                        hopBefore+=1
-                        hop+=1
-
-                    elif (tmpStart >= self.samplingTime[0]) and ((tmpStart+isoInt)<=self.samplingTime[1]):
-                        hop+=1
-
-                    tmpStart=tmpStart+isoInt
-
-                aggr_sql = """
-                    SELECT
-                        %s
-                    FROM (
-                        SELECT
-                            (
-                                '%s'::TIMESTAMP WITH TIME ZONE +
-                                s.a *
-                                '%s'::interval
-                            )::TIMESTAMP WITH TIME ZONE as sint
-                        FROM
-                            generate_series(%s, %s) as s(a)
-                    ) as ts
-
-                    LEFT JOIN ( 
-                        %s
-                    ) as dt
-                    ON (
-                        dt.t > (ts.sint-'%s'::interval)
-                        AND dt.t <= (ts.sint)
+                    join_txt += """
+                            FROM
+                                %s.profiles A%s
+                            WHERE
+                                A%s.id_pro_fk = %s
+                            ORDER BY A%s.id_eti_fk, A%s.val_depth
+                    """ % (
+                        filter.sosConfig.schema, idx,
+                        idx, obspr_row["id_pro"], idx, idx
                     )
 
-                    GROUP BY ts.sint
-                    ORDER BY ts.sint
-                """
+                    # ATTENTION: HERE -999 VALUES ARE EXCLUDED WHEN ASKING AN AGGREAGATE FUNCTION
+                    if filter.aggregate_interval != None: # >> Should be removed because measures data is not inserted if there is a nodata value
+                        join_txt += " AND A%s.val_msr > -900 " % idx
 
-                sql = aggr_sql % (
-                    ", ".join(aggrCols),
-                    filter.eventTime[0][0],
-                    sqlInt,
-                    hopBefore,
-                    hop,
-                    sql,
-                    sqlInt
+                    # close SQL JOINS
+                    join_txt += " ) as C%s\n" %(idx)
+                    if idx==0:
+                        join_txt += " on C%s.id_eti_fk = et.id_eti" %(idx)
+                    else:
+                        join_txt += " on C%s.id_eti_fk = et.id_eti AND C0.val_depth = C%s.val_depth" %(idx, idx)
+                    joinar.append(join_txt)
+
+                # Set FROM CLAUSE
+                sqlSel += "%s FROM %s.event_time et" % (
+                    ", ".join(cols), filter.sosConfig.schema
                 )
 
-                if filter.responseFormat in [
-                    'text/plain',
-                    'text/xml;subtype="om/1.0.0"',
-                    'text/xml'
-                ]:
-                    csv_sql = aggr_sql % (
-                        " || ',' || ".join(csv_aggr_cols),
+                # Set FROM CLAUSE
+                csv_sql_sel += "%s FROM %s.event_time et" % (
+                    (
+                        ",".join(cols)
+                        if filter.aggregate_interval != None
+                        else " || ',' || ".join(csv_sql_cols)
+                    ),
+                    filter.sosConfig.schema
+                )
+
+                # Set WHERE CLAUSES
+                sqlData = " ".join(joinar)
+                sqlData += " WHERE et.id_prc_fk=%s\n" %(row["id_prc"])
+
+                # Set FILTER ON RESULT (OGC:COMPARISON)
+                if filter.result:
+                    for ind, ov in enumerate(self.observedProperty):
+                        if ov.find(filter.result[0])>0:
+                            sqlData += " AND C%s.val_msr %s" %(ind,filter.result[1])
+
+                # Set FILTER ON EVENT-TIME
+                if filter.eventTime:
+                    sqlData += " AND ("
+                    etf=[]
+                    for ft in filter.eventTime:
+                        if len(ft)==2:
+                            etf.append("et.time_eti > timestamptz '%s' AND et.time_eti <= timestamptz '%s' " %(ft[0],ft[1]))
+
+                        elif len(ft)==1:
+                            etf.append("et.time_eti = timestamptz '%s' " %(ft[0]))
+
+                        else:
+                            raise Exception("error in time filter")
+
+                    sqlData += " OR ".join(etf)
+                    sqlData +=  ")\n"
+
+                else:
+                    # Get last observed measuement
+                    sqlData += " AND et.time_eti = (SELECT max(time_eti) FROM %s.event_time WHERE id_prc_fk=%s) " %(filter.sosConfig.schema,row["id_prc"])
+
+                # Quality index filtering
+                if (
+                    self.qualityIndex==True and
+                    filter.qualityFilter
+                ):
+                    if filter.qualityFilter[0]=='<':
+                        qi_sql = []
+                        for qi_field in qi_field_name:
+                            qi_sql.append(
+                                " %s < %s " % (
+                                    qi_field,
+                                    filter.qualityFilter[1]
+                                )
+                            )
+                        sqlData += " AND (%s)" % " AND ".join(qi_sql)
+
+                    elif filter.qualityFilter[0]=='>':
+                        qi_sql = []
+                        for qi_field in qi_field_name:
+                            qi_sql.append(
+                                " %s > %s " % (
+                                    qi_field,
+                                    filter.qualityFilter[1]
+                                )
+                            )
+                        sqlData += " AND (%s)" % " AND ".join(qi_sql)
+
+                    elif filter.qualityFilter[0]=='>=':
+                        qi_sql = []
+                        for qi_field in qi_field_name:
+                            qi_sql.append(
+                                " %s >= %s " % (
+                                    qi_field,
+                                    filter.qualityFilter[1]
+                                )
+                            )
+                        sqlData += " AND (%s)" % " AND ".join(qi_sql)
+
+                    elif filter.qualityFilter[0]=='<=':
+                        qi_sql = []
+                        for qi_field in qi_field_name:
+                            qi_sql.append(
+                                " %s <= %s " % (
+                                    qi_field,
+                                    filter.qualityFilter[1]
+                                )
+                            )
+                        sqlData += " AND (%s)" % " AND ".join(qi_sql)
+
+                    elif filter.qualityFilter[0]=='=':
+                        qi_sql = []
+                        for qi_field in qi_field_name:
+                            qi_sql.append(
+                                " %s = %s " % (
+                                    qi_field,
+                                    filter.qualityFilter[1]
+                                )
+                            )
+                        sqlData += " AND (%s)" % " OR ".join(qi_sql)
+                    elif filter.qualityFilter[0]=='~*':
+                        qi_sql = []
+                        for qi_field in qi_field_name:
+                            qi_sql.append(
+                                " %s::text ~* \'%s\' " % (
+                                    qi_field,
+                                    filter.qualityFilter[1]
+                                )
+                            )
+                        sqlData += " AND (%s)" % " OR ".join(qi_sql)
+
+                sqlData += " ORDER by et.time_eti"
+
+                sql = sqlSel + sqlData
+                csv_sql = csv_sql_sel + sqlData
+
+                if filter.aggregate_interval != None:
+                    self.aggregate_function = filter.aggregate_function.upper()
+
+                    # Interval preparation
+                    # Converting ISO 8601 duration
+                    isoInt = iso.parse_duration(filter.aggregate_interval)
+                    sqlInt = ""
+
+                    if isinstance(isoInt, timedelta):
+
+                        if isoInt.days>0:
+                            sqlInt += "%s days " % isoInt.days
+
+                        if isoInt.seconds>0:
+                            sqlInt += "%s seconds " % isoInt.seconds
+
+                    elif isinstance(isoInt, iso.Duration):
+                        if isoInt.years>0:
+                            sqlInt += "%s years " % isoInt.years
+
+                        if isoInt.months>0:
+                            sqlInt += "%s months " % int(isoInt.months)
+
+                        if isoInt.days>0:
+                            sqlInt += "%s days " % isoInt.days
+
+                        if isoInt.seconds>0:
+                            sqlInt += "%s seconds " % isoInt.seconds
+
+                    # @todo improve this part
+                    # calculate how many step are included in the asked interval.
+                    hopBefore = 1
+                    hop = 0
+                    tmpStart = iso.parse_datetime(filter.eventTime[0][0])
+                    tmpEnd = self.samplingTime[1]
+
+                    while (tmpStart+isoInt)<=tmpEnd and (tmpStart+isoInt)<=iso.parse_datetime(filter.eventTime[0][1]):
+
+                        if tmpStart <  self.samplingTime[0]:
+                            hopBefore+=1
+                            hop+=1
+
+                        elif (tmpStart >= self.samplingTime[0]) and ((tmpStart+isoInt)<=self.samplingTime[1]):
+                            hop+=1
+
+                        tmpStart=tmpStart+isoInt
+
+                    aggr_sql = """
+                        SELECT
+                            %s
+                        FROM (
+                            SELECT
+                                (
+                                    '%s'::TIMESTAMP WITH TIME ZONE +
+                                    s.a *
+                                    '%s'::interval
+                                )::TIMESTAMP WITH TIME ZONE as sint
+                            FROM
+                                generate_series(%s, %s) as s(a)
+                        ) as ts
+
+                        LEFT JOIN ( 
+                            %s
+                        ) as dt
+                        ON (
+                            dt.t > (ts.sint-'%s'::interval)
+                            AND dt.t <= (ts.sint)
+                        )
+
+                        GROUP BY ts.sint
+                        ORDER BY ts.sint
+                    """
+
+                    sql = aggr_sql % (
+                        ", ".join(aggrCols),
                         filter.eventTime[0][0],
                         sqlInt,
                         hopBefore,
                         hop,
-                        csv_sql,
+                        sql,
                         sqlInt
                     )
 
+                    if filter.responseFormat in [
+                        'text/plain',
+                        'text/xml;subtype="om/1.0.0"',
+                        'text/xml'
+                    ]:
+                        csv_sql = aggr_sql % (
+                            " || ',' || ".join(csv_aggr_cols),
+                            filter.eventTime[0][0],
+                            sqlInt,
+                            hopBefore,
+                            hop,
+                            csv_sql,
+                            sqlInt
+                        )
+
+                else:
+                    self.aggregate_function = None
+
+
+                try:
+                    a = datetime.datetime.now()
+                    self.data = pgdb.select(sql)
+                    if 'text/plain' == filter.responseFormat:
+                        self.csv = pgdb.to_string(csv_sql)
+
+                    elif filter.responseFormat in [
+                        'text/xml;subtype="om/1.0.0"',
+                        "text/xml"
+                    ]:
+                        self.csv = pgdb.to_string(csv_sql, lineterminator='@')
+
+                except Exception as xx:
+                    print(traceback.print_exc(), file=sys.stderr)
+                    # sys.stderr.flush()
+                    raise Exception("SQL: %s"%(sql))
             else:
-                self.aggregate_function = None
+                sqlSel = "SELECT "
 
-
-            try:
-                a = datetime.datetime.now()
-                self.data = pgdb.select(sql)
-
+                csv_sql_cols = [
+                    "row_to_json(row(time_eti))->>'f1'"
+                ]
                 if 'text/plain' == filter.responseFormat:
-                    self.csv = pgdb.to_string(csv_sql)
+                    csv_sql_cols.append("'%s'" % self.name)
 
-                elif filter.responseFormat in [
-                    'text/xml;subtype="om/1.0.0"',
-                    "text/xml"
-                ]:
-                    self.csv = pgdb.to_string(csv_sql, lineterminator='@')
+                csv_sql_sel = """
+                    SELECT
+                """
+                joinar=[]
+                cols=['et.time_eti as t']
 
-            except Exception as xx:
-                print(traceback.print_exc(), file=sys.stderr)
-                # sys.stderr.flush()
-                raise Exception("SQL: %s"%(sql))
+                aggrCols=["row_to_json(row(ts.sint))->>'f1' as t"]
+                csv_aggr_cols=["row_to_json(row(ts.sint))->>'f1'"]
+                if 'text/plain' == filter.responseFormat:
+                    csv_aggr_cols.append("'%s'" % self.name)
+                aggrNotNull=[]
+
+                valeFieldName = []
+                qi_field_name = []
+                for idx, obspr_row in enumerate(obspr_res):
+                    if self.qualityIndex==True:
+
+                        cols += [
+                            "C%s.val_msr as c%s_v" % (idx, idx),
+                            "COALESCE(C%s.id_qi_fk, %s) as c%s_qi" % (
+                                idx,
+                                filter.aggregate_nodata_qi,
+                                idx
+                            )
+                        ]
+                        csv_sql_cols += [
+                            "C%s.val_msr" % idx,
+                            "COALESCE(C%s.id_qi_fk, %s)" % (idx, filter.aggregate_nodata_qi)
+                        ]
+
+                        valeFieldName.append("c%s_v" %(idx))
+                        valeFieldName.append("c%s_qi" %(idx))
+                        qi_field_name.append("C%s.id_qi_fk" %(idx))
+
+                    else:
+                        cols.append("C%s.val_msr as c%s_v" %(idx,idx))
+                        csv_sql_cols.append("C%s.val_msr" %(idx))
+                        valeFieldName.append("c%s_v" %(idx))
+
+                    # If Aggregatation funtion is set
+                    if filter.aggregate_interval != None:
+                        # This accept only numeric results
+                        aggrCols.append(
+                            "COALESCE(%s(dt.c%s_v),'%s')" % (
+                                filter.aggregate_function,
+                                idx,
+                                filter.aggregate_nodata
+                            )
+                        )
+                        csv_aggr_cols.append(
+                            "COALESCE(%s(dt.c%s_v),'%s')" % (
+                                filter.aggregate_function,
+                                idx,
+                                filter.aggregate_nodata
+                            )
+                        )
+                        if self.qualityIndex==True:
+                            aggrCols.append("COALESCE(MIN(dt.c%s_qi),%s) as c%s_qi\n" % (
+                                idx,
+                                filter.aggregate_nodata_qi,
+                                idx
+                            ))
+                            csv_aggr_cols.append("COALESCE(MIN(dt.c%s_qi),%s)" % (
+                                idx,
+                                filter.aggregate_nodata_qi
+                            ))
+
+                        aggrNotNull.append(" c%s_v > -900 " %(idx))
+
+                    # Set SQL JOINS
+                    join_txt = """
+                        LEFT JOIN (
+                            SELECT
+                                A%s.id_msr,
+                                A%s.val_msr,
+                                A%s.id_eti_fk
+                    """ % (idx, idx, idx)
+
+                    if self.qualityIndex==True:
+                        join_txt += ", A%s.id_qi_fk\n" %(idx)
+
+                    join_txt += """
+                            FROM
+                                %s.measures A%s
+                            WHERE
+                                A%s.id_pro_fk = %s
+                    """ % (
+                        filter.sosConfig.schema, idx,
+                        idx, obspr_row["id_pro"]
+                    )
+
+                    # ATTENTION: HERE -999 VALUES ARE EXCLUDED WHEN ASKING AN AGGREAGATE FUNCTION
+                    if filter.aggregate_interval != None: # >> Should be removed because measures data is not inserted if there is a nodata value
+                        join_txt += " AND A%s.val_msr > -900 " % idx
+
+                    # close SQL JOINS
+                    join_txt += " ) as C%s\n" %(idx)
+                    join_txt += " on C%s.id_eti_fk = et.id_eti" %(idx)
+                    joinar.append(join_txt)
+
+                # If MOBILE PROCEDURE
+                if self.procedureType=="insitu-mobile-point":
+                    join_txt = """
+                        LEFT JOIN (
+                            SELECT
+                                Ax.id_pos,
+                                st_X(ST_Transform(Ax.geom_pos,%s)) as x,
+                                st_Y(ST_Transform(Ax.geom_pos,%s)) as y,
+                                st_Z(ST_Transform(Ax.geom_pos,%s)) as z,
+                                Ax.id_eti_fk
+                    """ %(
+                        filter.srsName,
+                        filter.srsName,
+                        filter.srsName
+                    )
+                    
+                    if self.qualityIndex==True:
+                        join_txt += ", Ax.id_qi_fk as posqi\n"
+
+                    join_txt += """
+                        FROM
+                            %s.positions Ax,
+                            %s.event_time Bx
+                        WHERE
+                            Ax.id_eti_fk = Bx.id_eti
+                        AND
+                            Bx.id_prc_fk = %s
+                    """ %(
+                        filter.sosConfig.schema,
+                        filter.sosConfig.schema,
+                        row["id_prc"]
+                    )
+
+                    join_txt += " ) as Cx on Cx.id_eti_fk = et.id_eti\n"
+                    cols.extend([
+                        "Cx.x as x",
+                        "Cx.y as y",
+                        "Cx.z as z"
+                    ])
+                    csv_sql_cols.extend([
+                        "Cx.x",
+                        "Cx.y",
+                        "Cx.z"
+                    ])
+                    if self.qualityIndex==True:
+                        cols.append("Cx.posqi")
+                        csv_sql_cols.append("Cx.posqi")
+
+                    joinar.append(join_txt)
+
+                # Set FROM CLAUSE
+                sqlSel += "%s FROM %s.event_time et" % (
+                    ", ".join(cols), filter.sosConfig.schema
+                )
+
+                # Set FROM CLAUSE
+                csv_sql_sel += "%s FROM %s.event_time et" % (
+                    (
+                        ",".join(cols)
+                        if filter.aggregate_interval != None
+                        else " || ',' || ".join(csv_sql_cols)
+                    ),
+                    filter.sosConfig.schema
+                )
+
+                # Set WHERE CLAUSES
+                sqlData = " ".join(joinar)
+                sqlData += " WHERE et.id_prc_fk=%s\n" %(row["id_prc"])
+
+                # Set FILTER ON RESULT (OGC:COMPARISON)
+                if filter.result:
+                    for ind, ov in enumerate(self.observedProperty):
+                        if ov.find(filter.result[0])>0:
+                            sqlData += " AND C%s.val_msr %s" %(ind,filter.result[1])
+
+                # Set FILTER ON EVENT-TIME
+                if filter.eventTime:
+                    sqlData += " AND ("
+                    etf=[]
+                    for ft in filter.eventTime:
+                        if len(ft)==2:
+                            etf.append("et.time_eti > timestamptz '%s' AND et.time_eti <= timestamptz '%s' " %(ft[0],ft[1]))
+
+                        elif len(ft)==1:
+                            etf.append("et.time_eti = timestamptz '%s' " %(ft[0]))
+
+                        else:
+                            raise Exception("error in time filter")
+
+                    sqlData += " OR ".join(etf)
+                    sqlData +=  ")\n"
+
+                else:
+                    # Get last observed measuement
+                    sqlData += " AND et.time_eti = (SELECT max(time_eti) FROM %s.event_time WHERE id_prc_fk=%s) " %(filter.sosConfig.schema,row["id_prc"])
+
+                # Quality index filtering
+                if (
+                    self.qualityIndex==True and
+                    filter.qualityFilter
+                ):
+                    if filter.qualityFilter[0]=='<':
+                        qi_sql = []
+                        for qi_field in qi_field_name:
+                            qi_sql.append(
+                                " %s < %s " % (
+                                    qi_field,
+                                    filter.qualityFilter[1]
+                                )
+                            )
+                        sqlData += " AND (%s)" % " AND ".join(qi_sql)
+
+                    elif filter.qualityFilter[0]=='>':
+                        qi_sql = []
+                        for qi_field in qi_field_name:
+                            qi_sql.append(
+                                " %s > %s " % (
+                                    qi_field,
+                                    filter.qualityFilter[1]
+                                )
+                            )
+                        sqlData += " AND (%s)" % " AND ".join(qi_sql)
+
+                    elif filter.qualityFilter[0]=='>=':
+                        qi_sql = []
+                        for qi_field in qi_field_name:
+                            qi_sql.append(
+                                " %s >= %s " % (
+                                    qi_field,
+                                    filter.qualityFilter[1]
+                                )
+                            )
+                        sqlData += " AND (%s)" % " AND ".join(qi_sql)
+
+                    elif filter.qualityFilter[0]=='<=':
+                        qi_sql = []
+                        for qi_field in qi_field_name:
+                            qi_sql.append(
+                                " %s <= %s " % (
+                                    qi_field,
+                                    filter.qualityFilter[1]
+                                )
+                            )
+                        sqlData += " AND (%s)" % " AND ".join(qi_sql)
+
+                    elif filter.qualityFilter[0]=='=':
+                        qi_sql = []
+                        for qi_field in qi_field_name:
+                            qi_sql.append(
+                                " %s = %s " % (
+                                    qi_field,
+                                    filter.qualityFilter[1]
+                                )
+                            )
+                        sqlData += " AND (%s)" % " OR ".join(qi_sql)
+                    elif filter.qualityFilter[0]=='~*':
+                        qi_sql = []
+                        for qi_field in qi_field_name:
+                            qi_sql.append(
+                                " %s::text ~* \'%s\' " % (
+                                    qi_field,
+                                    filter.qualityFilter[1]
+                                )
+                            )
+                        sqlData += " AND (%s)" % " OR ".join(qi_sql)
+
+                sqlData += " ORDER by et.time_eti"
+
+                sql = sqlSel + sqlData
+                csv_sql = csv_sql_sel + sqlData
+
+                if filter.aggregate_interval != None:
+                    self.aggregate_function = filter.aggregate_function.upper()
+
+                    # Interval preparation
+                    # Converting ISO 8601 duration
+                    isoInt = iso.parse_duration(filter.aggregate_interval)
+                    sqlInt = ""
+
+                    if isinstance(isoInt, timedelta):
+
+                        if isoInt.days>0:
+                            sqlInt += "%s days " % isoInt.days
+
+                        if isoInt.seconds>0:
+                            sqlInt += "%s seconds " % isoInt.seconds
+
+                    elif isinstance(isoInt, iso.Duration):
+                        if isoInt.years>0:
+                            sqlInt += "%s years " % isoInt.years
+
+                        if isoInt.months>0:
+                            sqlInt += "%s months " % int(isoInt.months)
+
+                        if isoInt.days>0:
+                            sqlInt += "%s days " % isoInt.days
+
+                        if isoInt.seconds>0:
+                            sqlInt += "%s seconds " % isoInt.seconds
+
+                    # @todo improve this part
+                    # calculate how many step are included in the asked interval.
+                    hopBefore = 1
+                    hop = 0
+                    tmpStart = iso.parse_datetime(filter.eventTime[0][0])
+                    tmpEnd = self.samplingTime[1]
+
+                    while (tmpStart+isoInt)<=tmpEnd and (tmpStart+isoInt)<=iso.parse_datetime(filter.eventTime[0][1]):
+
+                        if tmpStart <  self.samplingTime[0]:
+                            hopBefore+=1
+                            hop+=1
+
+                        elif (tmpStart >= self.samplingTime[0]) and ((tmpStart+isoInt)<=self.samplingTime[1]):
+                            hop+=1
+
+                        tmpStart=tmpStart+isoInt
+
+                    aggr_sql = """
+                        SELECT
+                            %s
+                        FROM (
+                            SELECT
+                                (
+                                    '%s'::TIMESTAMP WITH TIME ZONE +
+                                    s.a *
+                                    '%s'::interval
+                                )::TIMESTAMP WITH TIME ZONE as sint
+                            FROM
+                                generate_series(%s, %s) as s(a)
+                        ) as ts
+
+                        LEFT JOIN ( 
+                            %s
+                        ) as dt
+                        ON (
+                            dt.t > (ts.sint-'%s'::interval)
+                            AND dt.t <= (ts.sint)
+                        )
+
+                        GROUP BY ts.sint
+                        ORDER BY ts.sint
+                    """
+
+                    sql = aggr_sql % (
+                        ", ".join(aggrCols),
+                        filter.eventTime[0][0],
+                        sqlInt,
+                        hopBefore,
+                        hop,
+                        sql,
+                        sqlInt
+                    )
+
+                    if filter.responseFormat in [
+                        'text/plain',
+                        'text/xml;subtype="om/1.0.0"',
+                        'text/xml'
+                    ]:
+                        csv_sql = aggr_sql % (
+                            " || ',' || ".join(csv_aggr_cols),
+                            filter.eventTime[0][0],
+                            sqlInt,
+                            hopBefore,
+                            hop,
+                            csv_sql,
+                            sqlInt
+                        )
+
+                else:
+                    self.aggregate_function = None
+
+
+                try:
+                    a = datetime.datetime.now()
+                    self.data = pgdb.select(sql)
+
+                    if 'text/plain' == filter.responseFormat:
+                        self.csv = pgdb.to_string(csv_sql)
+
+                    elif filter.responseFormat in [
+                        'text/xml;subtype="om/1.0.0"',
+                        "text/xml"
+                    ]:
+                        self.csv = pgdb.to_string(csv_sql, lineterminator='@')
+
+                except Exception as xx:
+                    print(traceback.print_exc(), file=sys.stderr)
+                    # sys.stderr.flush()
+                    raise Exception("SQL: %s"%(sql))
 
         # CASE "virtual"
-        elif self.procedureType in ["virtual", "profile"]:
+        elif self.procedureType in ["virtual", "virtual-profile"]:
             self.aggregate_function = filter.aggregate_function
             self.aggregate_interval = filter.aggregate_interval
             self.aggregate_nodata = filter.aggregate_nodata

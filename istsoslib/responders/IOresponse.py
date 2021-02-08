@@ -363,7 +363,7 @@ class InsertObservationResponse:
 
         # verify if time and coordinates are passed as data parameters
         #  and create the parameters list and parameters ID
-        xobs = yobs = zobs = tpar = None
+        xobs = yobs = zobs = tpar = depthpar =  None
         pars = []  # Observed parameters
         parsId = []
         parsConsObs = []
@@ -380,6 +380,8 @@ class InsertObservationResponse:
             elif dn.find("iso8601") >= 0:
                 tpar = dataKeys[i]
             else:
+                if dn.find("depth") >= 0:
+                    depthpar = dataKeys[i]
                 if dn.split(":")[-1] != "qualityIndex":
                     pars.append(dn)
                     try:
@@ -405,240 +407,455 @@ class InsertObservationResponse:
                 prc["name_oty"] == "insitu-mobile-point"):
             raise Exception("Mobile sensors require x, y, z parameters")
 
+        # verify that procedure is a pfrofile type
+        profile_type = False
+        if prc["name_oty"] == "profile":
+            profile_type = True
+
         # verify that time parameter is provided
         if not tpar:
             raise Exception(
                 "parameter 'time:iso8601' is required for InsertObservation")
 
-        # verify that eventime are in provided samplingTime
-        if len(filter.data[tpar]["vals"]) > 0:
-            maxDate = iso.parse_datetime(max(filter.data[tpar]["vals"]))
-            minDate = iso.parse_datetime(min(filter.data[tpar]["vals"]))
-            if not maxDate <= end and minDate >= start:
-                raise Exception(
-                    "provided data (min: %s, max:%s) are not included in "
-                    "provided <samplingTime> period (%s / %s) for "
-                    "procedure %s" % (
-                        minDate.isoformat(), maxDate.isoformat(),
-                        start.isoformat(), end.isoformat(),
-                        prc["name_prc"]))
-
-        # insert observation
-        #  delete existing observations if force flag is active
-        if filter.forceInsert:
-            sql = """
-                DELETE FROM
-                    %s.event_time""" % (filter.sosConfig.schema)
-            sql += """
-                WHERE
-                    id_prc_fk = %s
-                AND
-                    time_eti >= %s::TIMESTAMPTZ
-                AND
-                    time_eti <= %s::TIMESTAMPTZ"""
-            params = (prc["id_prc"], stime[0], stime[1])
-            try:
-                b = pgdb.executeInTransaction(sql, params)
-                com = True
-            except:
-                raise Exception("SQL: %s" % (pgdb.mogrify(sql, params)))
-
-        # CASE I: observations list is void
-        if len(filter.data[tpar]["vals"]) == 0:
-            self.assignedId = ""
-            ids_eti = []
-
-        # CASE I: observations list contains data
-        elif len(filter.data[tpar]["vals"]) > 0:
-            # insert event times
-            ids_eti = []
-            params = []
-            sql = """
-                INSERT INTO
-                    %s.event_time (id_prc_fk,time_eti)""" % (
-                filter.sosConfig.schema)
-            sql += """
-                VALUES (
-                    %s, %s::TIMESTAMPTZ)
-                RETURNING
-                    id_eti"""
-            for val in filter.data[tpar]["vals"]:
-                try:
-                    ids_eti.append(
-                        pgdb.executeInTransaction(
-                            sql, (prc["id_prc"], val))[0]['id_eti'])
-                    com = True
-                except Exception as e:
+        if not profile_type:
+            # verify that eventime are in provided samplingTime
+            if len(filter.data[tpar]["vals"]) > 0:
+                maxDate = iso.parse_datetime(max(filter.data[tpar]["vals"]))
+                minDate = iso.parse_datetime(min(filter.data[tpar]["vals"]))
+                if not maxDate <= end and minDate >= start:
                     raise Exception(
-                        "Error inserting event times for %s: %s" % (
-                            prc["name_prc"], e))
+                        "provided data (min: %s, max:%s) are not included in "
+                        "provided <samplingTime> period (%s / %s) for "
+                        "procedure %s" % (
+                            minDate.isoformat(), maxDate.isoformat(),
+                            start.isoformat(), end.isoformat(),
+                            prc["name_prc"]))
 
-            for i, par in enumerate(pars):
-                params = []
-                ids_msr = []
+            # insert observation
+            #  delete existing observations if force flag is active
+            if filter.forceInsert:
                 sql = """
-                    INSERT INTO %s.measures (
-                        id_pro_fk,
-                        id_eti_fk,
-                        id_qi_fk,
-                        val_msr)""" % (filter.sosConfig.schema)
+                    DELETE FROM
+                        %s.event_time""" % (filter.sosConfig.schema)
                 sql += """
-                    VALUES
-                        (%s, %s, %s, %s)
-                    RETURNING
-                        id_msr"""
+                    WHERE
+                        id_prc_fk = %s
+                    AND
+                        time_eti >= %s::TIMESTAMPTZ
+                    AND
+                        time_eti <= %s::TIMESTAMPTZ"""
+                params = (prc["id_prc"], stime[0], stime[1])
+                try:
+                    b = pgdb.executeInTransaction(sql, params)
+                    com = True
+                except:
+                    raise Exception("SQL: %s" % (pgdb.mogrify(sql, params)))
 
-                pco = parsConsObs[i]
-                pcp = parsConsPro[i]
-                for ii, id_et in enumerate(ids_eti):
-                    if not filter.data[par]["vals"][ii] in [
-                            'NULL', 'NULL', None, 'None', 'None',
-                            filter.sosConfig.aggregate_nodata]:
-                        # TODO: add an else statement to add the
-                        #  aggregate_nodata value OR delete the event time if
-                        #  not filter.data[par]["vals"][ii] in ['NULL',u'NULL',
-                        #  None]:
-                        pqi = int(float(filter.data[par+":qualityIndex"]["vals"][ii]))
-                        # Constraint quality is done only if the quality index
-                        #  is equal to the default qi (RAW DATA)
-                        if int(filter.sosConfig.default_qi) == pqi:
-                            # quality check level I (gross error)
-                            val = float(filter.data[par]["vals"][ii])
-                            if filter.sosConfig.correct_qi is not None and (
-                                    pco is not None):
-                                if 'max' in pco:
-                                    if val <= (
-                                            float(pco['max'])):
-                                        pqi = int(filter.sosConfig.correct_qi)
+            # CASE I: observations list is void
+            if len(filter.data[tpar]["vals"]) == 0:
+                self.assignedId = ""
+                ids_eti = []
 
-                                elif 'min' in pco:
-                                    if val >= (
-                                            float(pco['min'])):
-                                        pqi = int(filter.sosConfig.correct_qi)
-
-                                elif 'interval' in pco:
-                                    if (float(pco['interval'][0])
-                                            <= val
-                                            <= float(pco['interval'][1])):
-                                        pqi = int(filter.sosConfig.correct_qi)
-
-                                elif 'valueList' in pco:
-                                    if val in [float(p) for p in (
-                                            pco['valueList'])]:
-                                        pqi = int(filter.sosConfig.correct_qi)
-
-                            # quality check level II (statistical range)
-                            if filter.sosConfig.stat_qi is not None and (
-                                    pcp is not None):
-                                if 'max' in pcp:
-                                    if val <= float(pcp['max']):
-                                        pqi = int(filter.sosConfig.stat_qi)
-
-                                elif 'min' in pcp:
-                                    if val >= float(pcp['min']):
-                                        pqi = int(filter.sosConfig.stat_qi)
-
-                                elif 'interval' in pcp:
-                                    if (float(pcp['interval'][0]) <=
-                                            val <=
-                                            float(pcp['interval'][1])):
-                                        pqi = int(filter.sosConfig.stat_qi)
-
-                                elif 'valueList' in pcp:
-                                    if val in [float(p) for p in pcp[
-                                            'valueList']]:
-                                        pqi = int(filter.sosConfig.stat_qi)
-
-                        params = (
-                            int(parsId[i]), int(id_et),
-                            pqi, float(filter.data[par]["vals"][ii]))
-                        try:
-                            nid_msr = pgdb.executeInTransaction(sql, params)
-                            ids_msr.append(str(nid_msr[0]['id_msr']))
-                        except Exception as e:
-                            com = False
-                            raise e
-
-            #--insert position values if required
-            if prc["name_oty"] == "insitu-mobile-point":
-                xparspl = xobs.split(":")
-                epsg = xparspl[xparspl.index("EPSG")+1]
+            # CASE I: observations list contains data
+            elif len(filter.data[tpar]["vals"]) > 0:
+                # insert event times
+                ids_eti = []
                 params = []
                 sql = """
-                    INSERT INTO %s.positions (
-                        id_qi_fk,
-                        id_eti_fk,
-                        geom_pos)""" % (filter.sosConfig.schema)
+                    INSERT INTO
+                        %s.event_time (id_prc_fk,time_eti)""" % (
+                    filter.sosConfig.schema)
                 sql += """
                     VALUES (
-                        %s, %s,
-                        ST_Transform(
-                            ST_SetSRID(ST_MakePoint(%s, %s, %s), %s), %s))"""
-
-                for i, id_et in enumerate(ids_eti):
-                    params = (
-                        filter.sosConfig.default_qi, id_et,
-                        filter.data[xobs]["vals"][i],
-                        filter.data[yobs]["vals"][i],
-                        filter.data[zobs]["vals"][i],
-                        epsg,
-                        filter.sosConfig.istsosepsg)
+                        %s, %s::TIMESTAMPTZ)
+                    RETURNING
+                        id_eti"""
+                for val in filter.data[tpar]["vals"]:
                     try:
-                        ids_pos = pgdb.executeInTransaction(sql, params)
+                        ids_eti.append(
+                            pgdb.executeInTransaction(
+                                sql, (prc["id_prc"], val))[0]['id_eti'])
                         com = True
-                    except Exception as a:
-                        com = False
+                    except Exception as e:
                         raise Exception(
-                            "%s\nSQL: %s" % (a, pgdb.mogrify(sql, params)))
+                            "Error inserting event times for %s: %s" % (
+                                prc["name_prc"], e))
 
-            # register assigned IDs of measures
-            self.assignedId = "@".join([str(p) for p in ids_eti])
-            # commit executed operations
+                for i, par in enumerate(pars):
+                    params = []
+                    ids_msr = []
+                    sql = """
+                        INSERT INTO %s.measures (
+                            id_pro_fk,
+                            id_eti_fk,
+                            id_qi_fk,
+                            val_msr)""" % (filter.sosConfig.schema)
+                    sql += """
+                        VALUES
+                            (%s, %s, %s, %s)
+                        RETURNING
+                            id_msr"""
 
-        #Register the transactional operation in Log table
-        if filter.sosConfig.transactional_log in ['True', 'true', 1]:
-            sqlLog = """
-                INSERT INTO %s.tran_log (
-                    operation_trl,
-                    procedure_trl,
-                    begin_trl,
-                    end_trl,
-                    count,
-                    stime_prc,
-                    etime_prc)""" % (filter.sosConfig.schema)
-            sqlLog += """
-                VALUES (
-                    'InsertObservation',
-                    %s,
-                    %s::TIMESTAMPTZ,
-                    %s::TIMESTAMPTZ,
-                    %s,
-                    %s::TIMESTAMPTZ,
-                    %s::TIMESTAMPTZ)"""
-            params = (
-                str(filter.procedure),
-                start,
-                end,
-                len(ids_eti),
-                prc["stime_prc"],
-                prc["etime_prc"])
-            try:
-                pgdb.executeInTransaction(sqlLog, params)
-                com = True
-            except:
-                raise Exception("SQL: %s" % (pgdb.mogrify(sqlLog, params)))
+                    pco = parsConsObs[i]
+                    pcp = parsConsPro[i]
+                    for ii, id_et in enumerate(ids_eti):
+                        if not filter.data[par]["vals"][ii] in [
+                                'NULL', 'NULL', None, 'None', 'None',
+                                filter.sosConfig.aggregate_nodata]:
+                            # TODO: add an else statement to add the
+                            #  aggregate_nodata value OR delete the event time if
+                            #  not filter.data[par]["vals"][ii] in ['NULL',u'NULL',
+                            #  None]:
+                            pqi = int(float(filter.data[par+":qualityIndex"]["vals"][ii]))
+                            # Constraint quality is done only if the quality index
+                            #  is equal to the default qi (RAW DATA)
+                            if int(filter.sosConfig.default_qi) == pqi:
+                                # quality check level I (gross error)
+                                val = float(filter.data[par]["vals"][ii])
+                                if filter.sosConfig.correct_qi is not None and (
+                                        pco is not None):
+                                    if 'max' in pco:
+                                        if val <= (
+                                                float(pco['max'])):
+                                            pqi = int(filter.sosConfig.correct_qi)
 
-        if com is True:
-            pgdb.commitTransaction()
-            # broadcasting to mqtt broker if configured
-            if filter.sosConfig.mqtt["broker_url"] != '' and (
-                    filter.sosConfig.mqtt["broker_port"] != ''):
-                from istmqttlib import PahoPublisher
-                PahoPublisher({
-                    "broker_url": filter.sosConfig.mqtt["broker_url"],
-                    "broker_port": filter.sosConfig.mqtt["broker_port"],
-                    "broker_topic": "%s%s" % (
-                        filter.sosConfig.mqtt["broker_topic"],
-                        filter.procedure),
-                    "data": filter.dataArray
-                }).start()
+                                    elif 'min' in pco:
+                                        if val >= (
+                                                float(pco['min'])):
+                                            pqi = int(filter.sosConfig.correct_qi)
+
+                                    elif 'interval' in pco:
+                                        if (float(pco['interval'][0])
+                                                <= val
+                                                <= float(pco['interval'][1])):
+                                            pqi = int(filter.sosConfig.correct_qi)
+
+                                    elif 'valueList' in pco:
+                                        if val in [float(p) for p in (
+                                                pco['valueList'])]:
+                                            pqi = int(filter.sosConfig.correct_qi)
+
+                                # quality check level II (statistical range)
+                                if filter.sosConfig.stat_qi is not None and (
+                                        pcp is not None):
+                                    if 'max' in pcp:
+                                        if val <= float(pcp['max']):
+                                            pqi = int(filter.sosConfig.stat_qi)
+
+                                    elif 'min' in pcp:
+                                        if val >= float(pcp['min']):
+                                            pqi = int(filter.sosConfig.stat_qi)
+
+                                    elif 'interval' in pcp:
+                                        if (float(pcp['interval'][0]) <=
+                                                val <=
+                                                float(pcp['interval'][1])):
+                                            pqi = int(filter.sosConfig.stat_qi)
+
+                                    elif 'valueList' in pcp:
+                                        if val in [float(p) for p in pcp[
+                                                'valueList']]:
+                                            pqi = int(filter.sosConfig.stat_qi)
+
+                            params = (
+                                int(parsId[i]), int(id_et),
+                                pqi, float(filter.data[par]["vals"][ii]))
+                            try:
+                                nid_msr = pgdb.executeInTransaction(sql, params)
+                                ids_msr.append(str(nid_msr[0]['id_msr']))
+                            except Exception as e:
+                                com = False
+                                raise e
+
+                #--insert position values if required
+                if prc["name_oty"] == "insitu-mobile-point":
+                    xparspl = xobs.split(":")
+                    epsg = xparspl[xparspl.index("EPSG")+1]
+                    params = []
+                    sql = """
+                        INSERT INTO %s.positions (
+                            id_qi_fk,
+                            id_eti_fk,
+                            geom_pos)""" % (filter.sosConfig.schema)
+                    sql += """
+                        VALUES (
+                            %s, %s,
+                            ST_Transform(
+                                ST_SetSRID(ST_MakePoint(%s, %s, %s), %s), %s))"""
+
+                    for i, id_et in enumerate(ids_eti):
+                        params = (
+                            filter.sosConfig.default_qi, id_et,
+                            filter.data[xobs]["vals"][i],
+                            filter.data[yobs]["vals"][i],
+                            filter.data[zobs]["vals"][i],
+                            epsg,
+                            filter.sosConfig.istsosepsg)
+                        try:
+                            ids_pos = pgdb.executeInTransaction(sql, params)
+                            com = True
+                        except Exception as a:
+                            com = False
+                            raise Exception(
+                                "%s\nSQL: %s" % (a, pgdb.mogrify(sql, params)))
+
+                # register assigned IDs of measures
+                self.assignedId = "@".join([str(p) for p in ids_eti])
+                # commit executed operations
+
+            #Register the transactional operation in Log table
+            if filter.sosConfig.transactional_log in ['True', 'true', 1]:
+                sqlLog = """
+                    INSERT INTO %s.tran_log (
+                        operation_trl,
+                        procedure_trl,
+                        begin_trl,
+                        end_trl,
+                        count,
+                        stime_prc,
+                        etime_prc)""" % (filter.sosConfig.schema)
+                sqlLog += """
+                    VALUES (
+                        'InsertObservation',
+                        %s,
+                        %s::TIMESTAMPTZ,
+                        %s::TIMESTAMPTZ,
+                        %s,
+                        %s::TIMESTAMPTZ,
+                        %s::TIMESTAMPTZ)"""
+                params = (
+                    str(filter.procedure),
+                    start,
+                    end,
+                    len(ids_eti),
+                    prc["stime_prc"],
+                    prc["etime_prc"])
+                try:
+                    pgdb.executeInTransaction(sqlLog, params)
+                    com = True
+                except:
+                    raise Exception("SQL: %s" % (pgdb.mogrify(sqlLog, params)))
+
+            if com is True:
+                pgdb.commitTransaction()
+                # broadcasting to mqtt broker if configured
+                if filter.sosConfig.mqtt["broker_url"] != '' and (
+                        filter.sosConfig.mqtt["broker_port"] != ''):
+                    from istmqttlib import PahoPublisher
+                    PahoPublisher({
+                        "broker_url": filter.sosConfig.mqtt["broker_url"],
+                        "broker_port": filter.sosConfig.mqtt["broker_port"],
+                        "broker_topic": "%s%s" % (
+                            filter.sosConfig.mqtt["broker_topic"],
+                            filter.procedure),
+                        "data": filter.dataArray
+                    }).start()
+        else:
+            # verify that eventime are in provided samplingTime
+
+            if len(filter.data[tpar]["vals"]) > 0:
+                maxDate = iso.parse_datetime(max(filter.data[tpar]["vals"]))
+                minDate = iso.parse_datetime(min(filter.data[tpar]["vals"]))
+                if not maxDate <= end and minDate >= start:
+                    raise Exception(
+                        "provided data (min: %s, max:%s) are not included in "
+                        "provided <samplingTime> period (%s / %s) for "
+                        "procedure %s" % (
+                            minDate.isoformat(), maxDate.isoformat(),
+                            start.isoformat(), end.isoformat(),
+                            prc["name_prc"]))
+
+            # insert observation
+            #  delete existing observations if force flag is active
+            if filter.forceInsert:
+                sql = """
+                    DELETE FROM
+                        %s.event_time""" % (filter.sosConfig.schema)
+                sql += """
+                    WHERE
+                        id_prc_fk = %s
+                    AND
+                        time_eti >= %s::TIMESTAMPTZ
+                    AND
+                        time_eti <= %s::TIMESTAMPTZ"""
+                params = (prc["id_prc"], stime[0], stime[1])
+                try:
+                    b = pgdb.executeInTransaction(sql, params)
+                    com = True
+                except:
+                    raise Exception("SQL: %s" % (pgdb.mogrify(sql, params)))
+
+            # CASE I: observations list is void
+            if len(filter.data[tpar]["vals"]) == 0:
+                self.assignedId = ""
+                ids_eti = []
+
+            # CASE I: observations list contains data
+            elif len(filter.data[tpar]["vals"]) > 0:
+                # insert event times
+                ids_eti = []
+                params = []
+                sql = """
+                    INSERT INTO
+                        %s.event_time (id_prc_fk,time_eti)""" % (
+                    filter.sosConfig.schema)
+                sql += """
+                    VALUES (
+                        %s, %s::TIMESTAMPTZ)
+                    RETURNING
+                        id_eti"""
+                times = []
+                for val in filter.data[tpar]["vals"]:
+                    if val in times:
+                        ids_eti.append(ids_eti[-1])
+                    else:
+                        try:
+                            ids_eti.append(
+                                pgdb.executeInTransaction(
+                                    sql, (prc["id_prc"], val))[0]['id_eti'])
+                            com = True
+                            times.append(val)
+                        except Exception as e:
+                            raise Exception(
+                                "Error inserting event times for %s: %s" % (
+                                    prc["name_prc"], e))
+                depths = filter.data[depthpar]["vals"]
+                print(pars)
+                for i, par in enumerate(pars):
+                    params = []
+                    ids_pfl = []
+                    sql = """
+                        INSERT INTO %s.profiles (
+                            id_pro_fk,
+                            id_eti_fk,
+                            id_qi_fk,
+                            val_msr,
+                            val_depth)""" % (filter.sosConfig.schema)
+                    sql += """
+                        VALUES
+                            (%s, %s, %s, %s, %s)
+                        RETURNING
+                            id_pfl"""
+
+                    pco = parsConsObs[i]
+                    pcp = parsConsPro[i]
+                    for ii, id_et in enumerate(ids_eti):
+                        if not filter.data[par]["vals"][ii] in [
+                                'NULL', 'NULL', None, 'None', 'None',
+                                filter.sosConfig.aggregate_nodata]:
+                            # TODO: add an else statement to add the
+                            #  aggregate_nodata value OR delete the event time if
+                            #  not filter.data[par]["vals"][ii] in ['NULL',u'NULL',
+                            #  None]:
+                            pqi = int(float(filter.data[par+":qualityIndex"]["vals"][ii]))
+                            # Constraint quality is done only if the quality index
+                            #  is equal to the default qi (RAW DATA)
+                            if int(filter.sosConfig.default_qi) == pqi:
+                                # quality check level I (gross error)
+                                val = float(filter.data[par]["vals"][ii])
+                                if filter.sosConfig.correct_qi is not None and (
+                                        pco is not None):
+                                    if 'max' in pco:
+                                        if val <= (
+                                                float(pco['max'])):
+                                            pqi = int(filter.sosConfig.correct_qi)
+
+                                    elif 'min' in pco:
+                                        if val >= (
+                                                float(pco['min'])):
+                                            pqi = int(filter.sosConfig.correct_qi)
+
+                                    elif 'interval' in pco:
+                                        if (float(pco['interval'][0])
+                                                <= val
+                                                <= float(pco['interval'][1])):
+                                            pqi = int(filter.sosConfig.correct_qi)
+
+                                    elif 'valueList' in pco:
+                                        if val in [float(p) for p in (
+                                                pco['valueList'])]:
+                                            pqi = int(filter.sosConfig.correct_qi)
+
+                                # quality check level II (statistical range)
+                                if filter.sosConfig.stat_qi is not None and (
+                                        pcp is not None):
+                                    if 'max' in pcp:
+                                        if val <= float(pcp['max']):
+                                            pqi = int(filter.sosConfig.stat_qi)
+
+                                    elif 'min' in pcp:
+                                        if val >= float(pcp['min']):
+                                            pqi = int(filter.sosConfig.stat_qi)
+
+                                    elif 'interval' in pcp:
+                                        if (float(pcp['interval'][0]) <=
+                                                val <=
+                                                float(pcp['interval'][1])):
+                                            pqi = int(filter.sosConfig.stat_qi)
+
+                                    elif 'valueList' in pcp:
+                                        if val in [float(p) for p in pcp[
+                                                'valueList']]:
+                                            pqi = int(filter.sosConfig.stat_qi)
+
+                            params = (
+                                int(parsId[i]), int(id_et),
+                                pqi, float(filter.data[par]["vals"][ii]), float(depths[ii]))
+                            try:
+                                nid_msr = pgdb.executeInTransaction(sql, params)
+                                ids_pfl.append(str(nid_msr[0]['id_pfl']))
+                            except Exception as e:
+                                com = False
+                                raise e
+
+                # register assigned IDs of measures
+                self.assignedId = "@".join([str(p) for p in ids_eti])
+                # commit executed operations
+
+            #Register the transactional operation in Log table
+            if filter.sosConfig.transactional_log in ['True', 'true', 1]:
+                sqlLog = """
+                    INSERT INTO %s.tran_log (
+                        operation_trl,
+                        procedure_trl,
+                        begin_trl,
+                        end_trl,
+                        count,
+                        stime_prc,
+                        etime_prc)""" % (filter.sosConfig.schema)
+                sqlLog += """
+                    VALUES (
+                        'InsertObservation',
+                        %s,
+                        %s::TIMESTAMPTZ,
+                        %s::TIMESTAMPTZ,
+                        %s,
+                        %s::TIMESTAMPTZ,
+                        %s::TIMESTAMPTZ)"""
+                params = (
+                    str(filter.procedure),
+                    start,
+                    end,
+                    len(ids_eti),
+                    prc["stime_prc"],
+                    prc["etime_prc"])
+                try:
+                    pgdb.executeInTransaction(sqlLog, params)
+                    com = True
+                except:
+                    raise Exception("SQL: %s" % (pgdb.mogrify(sqlLog, params)))
+
+            if com is True:
+                pgdb.commitTransaction()
+                # broadcasting to mqtt broker if configured
+                if filter.sosConfig.mqtt["broker_url"] != '' and (
+                        filter.sosConfig.mqtt["broker_port"] != ''):
+                    from istmqttlib import PahoPublisher
+                    PahoPublisher({
+                        "broker_url": filter.sosConfig.mqtt["broker_url"],
+                        "broker_port": filter.sosConfig.mqtt["broker_port"],
+                        "broker_topic": "%s%s" % (
+                            filter.sosConfig.mqtt["broker_topic"],
+                            filter.procedure),
+                        "data": filter.dataArray
+                    }).start()

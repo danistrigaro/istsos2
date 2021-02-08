@@ -432,7 +432,7 @@ def getProcedureNamesList(pgdb, service, offering = None,
             if row["etime_prc"]:
                 end = row["etime_prc"].strftime("%Y-%m-%dT%H:%M:%S%z")
 
-            if row["name_oty"] == 'virtual' or row["name_oty"] == 'profile':
+            if row["name_oty"] == 'virtual' or row["name_oty"] == 'virtual-profile':
                 virtual_processes_folder = "%s/%s/virtual/" % (
                     config.services_path, service)
                 vpFolder = os.path.join(

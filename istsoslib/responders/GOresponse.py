@@ -37,7 +37,6 @@ from dateutil.parser import parse
 
 from istsoslib import sosException
 
-
 date_handler = lambda obj: (
     obj.isoformat()
     if isinstance(obj, (datetime.datetime, datetime.date))
@@ -315,9 +314,6 @@ class VirtualProcess(ABC):
             virtualFilter.aggregate_interval = None
 
         obs.setData(self.pgdb, result, virtualFilter)
-
-        print(obs.data)
-
         return obs.data
 
     def applyFunction(self):
@@ -500,10 +496,6 @@ class VirtualProcessProfile(VirtualProcess):
                          obs_filtered.append(ob)
                          if self.filter.qualityIndex is True:
                             obs_filtered.append(f"{ob}:qualityIndex")
-        # check = False
-        # idx_depth = 0
-        # idx_tmp = 1
-        # depth = False
         for proc in procs_info:
             proc_with_index = []
             for k in proc[3]:
@@ -529,7 +521,6 @@ class VirtualProcessProfile(VirtualProcess):
                     else:
                         idx_depth = i
                         idx_tmp -= 1
-            
             if depth:
                 if self.filter.qualityIndex is True:
                     idx_order.insert(idx_depth,len(obs_filtered)-1)
@@ -543,7 +534,6 @@ class VirtualProcessProfile(VirtualProcess):
             else:
                 self.procedures[proc[1]] = self.obs_input
                 data_temp = self.getData(proc[1], virtual_profile=True)
-                # print(self.filter.responseFormat)
                 if data_temp:
                     if self.filter.qualityIndex is True:
                         depths_list = [
@@ -567,22 +557,9 @@ class VirtualProcessProfile(VirtualProcess):
         else:
             data.sort(key=lambda row: row[idx_order.index(len(obs_filtered))])
         data.sort(key=lambda row: row[0])
-        if self.filter.qualityIndex is True:
-            data.sort(key=lambda row: row[4], reverse=True)
-
-        if self.filter.responseFormat == "application/json":
-
-            dict_data = {}
-            for elem in data:
-                if elem[0].isoformat() not in dict_data:
-                    dict_data[elem[0].isoformat() ] = []
-                dict_data[elem[0].isoformat()].append(elem[1:])
-
-            data = dict_data
-        else:
+        if len(data)>0:
             if len(self.obs) != (len(data[0]) - 1):
                 raise Exception("Number of observed properties mismatches")
-
         return data
 
 

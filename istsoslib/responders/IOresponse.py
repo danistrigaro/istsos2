@@ -720,7 +720,6 @@ class InsertObservationResponse:
                                 "Error inserting event times for %s: %s" % (
                                     prc["name_prc"], e))
                 depths = filter.data[depthpar]["vals"]
-                print(pars)
                 for i, par in enumerate(pars):
                     params = []
                     ids_pfl = []

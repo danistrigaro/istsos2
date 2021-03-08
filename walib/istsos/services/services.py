@@ -218,10 +218,15 @@ class waServices(waResourceAdmin):
         else:
             url = 'https://'
 
-        url = "%s%s%s/%s" % (
-            url, self.waEnviron['server_name'],
-            self.waEnviron['script_name'],
-            self.json["service"])
+        if self.waEnviron['script_name']:
+            url = "%s%s%s/%s" % (
+                url, self.waEnviron['server_name'],
+                self.waEnviron['script_name'],
+                self.json["service"])
+        else:
+            url = "%s%s/%s" % (
+                url, self.waEnviron['server_name'],
+                self.json["service"])
 
         surl.put("serviceurl", "url", url)
         surl.save()
